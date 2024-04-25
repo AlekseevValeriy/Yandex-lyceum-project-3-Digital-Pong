@@ -1,0 +1,6 @@
+Flask==3.0.3
+Kivy==2.3.0
+SQLAlchemy==2.0.29
+git+https://github.com/kivymd/KivyMD/archive/master.zip #kivymd==2.0.1.dev0
+requests==2.31.0
+screeninfo==0.8.1
