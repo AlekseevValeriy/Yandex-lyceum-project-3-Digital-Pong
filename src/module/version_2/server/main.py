@@ -34,6 +34,7 @@ def catch_error(function):
     return data
 
 
+# user
 @app.route('/registration/<string:username>/<string:password>')
 @catch_error
 def registration(username: str, password: str) -> Response:
@@ -56,7 +57,6 @@ def delete_user(username: str, password: str) -> Response:
     return jsonify(0)
 
 
-# user
 @app.route('/')
 @app.route('/login/<string:username>/<string:password>')
 @catch_error
@@ -88,20 +88,35 @@ def gate(user_id: int, where: int) -> Response:
 def get_rooms() -> Response:
     return jsonify(
         dict(map(lambda r: (r.id, tuple(map(lambda u: db_session_app.query(User).filter(User.id == int(u.split(':')[0])
-            ).first().username, r.users.split(';') if r.users else ''))), db_session_app.query(Room))))
+                                                                                        ).first().username,
+                                            r.users.split(';') if r.users else ''))), db_session_app.query(Room))))
+
+
+@app.route('/get_room_users/<int:room_id>')
+@catch_error
+def get_room_users(room_id: int) -> Response:
+    room = db_session_app.query(Room).filter(Room.id == room_id).first()
+    if not room: raise RoomNotExists
+    return jsonify(room.users)
 
 
 @app.route('/create_room/<int:user_id>/<int:user_limit>')
 @catch_error
 def create_room(user_id: int, user_limit: int) -> Response:
+    user = db_session_app.query(User).filter(User.id == user_id).first()
+    if not user: raise UserNotExists
+    if user.in_room: raise UserIsAlreadyInTheRoom
+    user.in_room = True
+    db_session_app.add(user)
     room = Room()
     room.user_limit = user_limit
     room.game_run = False
     room.users = f"{user_id}:{0}"
-
     db_session_app.add(room)
     db_session_app.commit()
-    return jsonify(0)
+    room = db_session_app.query(Room).filter(Room.users == f"{user_id}:{0}").first()
+
+    return jsonify(room.id)
 
 
 @app.route('/delete_room/<int:room_id>')
@@ -109,7 +124,16 @@ def create_room(user_id: int, user_limit: int) -> Response:
 def delete_room(room_id: int) -> Response:
     room = db_session_app.query(User).filter(Room.id == room_id).first()
     if not room: raise RoomNotExists
+    for user_id in list(map(lambda u: u.split(':')[0], tuple(csv.reader(StringIO(room.users), delimiter=';'))[0])):
+        try:
+            user = db_session_app.query(User).filter(User.id == user_id).first()
+            if not user: raise UserNotExists
+            user.in_room = False
+            db_session_app.add(user)
+        except UserNotExists:
+            continue
     db_session_app.delete(room)
+    db_session_app.commit()
     return jsonify(0)
 
 
@@ -126,8 +150,12 @@ def enter_room(room_id: int, user_id: int) -> Response:
         if len(users) >= room.user_limit: raise RoomUsersLimit
     user = db_session_app.query(User).filter(User.id == user_id).first()
     if not user: raise UserNotExists
+
+    if user.in_room: raise UserIsAlreadyInTheRoom
     if str(user.id) in users: raise RoomUserAvailable
     users.append(f"{user.id}:{0}")
+    user.in_room = True
+    db_session_app.add(user)
     if len(users) == room.user_limit:
         room.game_run = True
     users = tuple(dict(map(lambda i: (i, None), users)))
@@ -145,15 +173,19 @@ def leave_room(room_id: int, user_id: int) -> Response:
     if not room.users: raise RoomUsersMiss
     users = tuple(csv.reader(StringIO(room.users), delimiter=';'))[0]
     users_id = list(map(lambda u: u.split(':')[0], users))
-    if str(user_id) not in users_id: raise RoomUserMiss
-    user_index = users_id.index(str(user_id))
+    if f"{user_id}:0" not in users_id: raise RoomUserMiss
+    user_index = users_id.index(f"{user_id}:0")
     users.pop(user_index)
+    user = db_session_app.query(User).filter(User.id == user_id).first()
+    if not user: raise UserNotExists
+    user.in_room = False
+    db_session_app.add(user)
     if not users:
         db_session_app.delete(room)
     else:
         room.users = ';'.join(users)
         db_session_app.add(room)
-        db_session_app.commit()
+    db_session_app.commit()
     return jsonify(0)
 
 

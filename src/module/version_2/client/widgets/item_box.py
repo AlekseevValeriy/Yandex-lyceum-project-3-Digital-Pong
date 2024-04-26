@@ -1,10 +1,12 @@
+import asyncio
 from typing import Callable, Any
 import csv
 
 import asynckivy
 
 from icecream import ic
-from kivy.properties import NumericProperty, ListProperty
+from kivy.properties import NumericProperty, ListProperty, StringProperty
+from kivymd.uix.list import MDListItem
 from kivymd.uix.stacklayout import StackLayout
 
 from src.module.version_2.client.widgets.player_item import PlayerListItem
@@ -26,6 +28,7 @@ class ItemBox(StackLayout):
 
     widgets_limit = NumericProperty(0)
     window_size = ListProperty([])
+    user_ids = StringProperty("")
 
 
     def __init__(self, *args, **kwargs):
@@ -65,18 +68,35 @@ class ItemBox(StackLayout):
         raise ChildrenLimitExceededError
 
     @error_catcher
-    def add_player(self, player_item_data: StackLayout = None) -> None:
-        if not player_item_data:
-            player_item_data = PlayerItem.default()
-        player_item_data.icon = self.ICON_DATA[player_item_data.status]
-        player_item_data.location = self.LOCATION_DATA[player_item_data.status]
+    def add_player(self, player_item_data: PlayerItem | dict = None) -> None:
+        match player_item_data.__class__.__name__:
+            case 'PlayerItem':
+                pass
+            case 'dict':
+                player_item_data = PlayerItem(status=1, **player_item_data)
+            case 'NoneType':
+                player_item_data = PlayerItem.default()
+                player_item_data.icon = self.ICON_DATA[player_item_data.status]
+                player_item_data.location = self.LOCATION_DATA[player_item_data.status]
         self.add_widget(PlayerListItem().template(player_item_data))
+
 
     # class functions
     @error_catcher
     def add_widget(self, widget, *args, **kwargs):
         if self.widgets_quantity() < self.widgets_limit:
             super().add_widget(widget, *args, **kwargs)
+
+    def set_users(self, user_ids: str) -> None:
+        if self.user_ids == user_ids:
+            return None
+        self.clear_widgets()
+        self.user_ids = user_ids
+        user_ids = tuple(map(lambda a: a.split(':')[0], self.user_ids.split(';')))
+        print(user_ids)
+        tuple(self.add_player({"nickname": user_id}) for user_id in user_ids)
+
+
 
     def do_layout(self, *largs):
         super().do_layout(*largs)

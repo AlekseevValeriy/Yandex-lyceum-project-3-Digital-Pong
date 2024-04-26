@@ -9,10 +9,8 @@ from kivymd.uix.list import MDListItem, MDListItemLeadingIcon, MDListItemHeadlin
 
 from src.module.version_2.client.data import PlayerItem
 
-
 class PlayerListItem(MDListItem):
     status = NumericProperty(0)
-
 
     def md_chip_template(self, data: str) -> MDChip:
         def waiting(widget_class: Any) -> None:

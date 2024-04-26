@@ -55,6 +55,10 @@ class UserNotExists(UserException):
     status_code, message = 132, "Пользователь не существует"
 
 
+class UserIsAlreadyInTheRoom(UserException):
+    status_code, message = 133, "Пользователь уже находится в комнате"
+
+
 class RoomException(ResponseException):
     status_code, message = 14, "Ошибка комнаты"
 

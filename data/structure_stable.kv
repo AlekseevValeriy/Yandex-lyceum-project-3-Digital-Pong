@@ -163,7 +163,7 @@ MDScreenManager:
                 style: 'outlined'
                 pos: (back_to_start_menu.size[0] + create_room.size[0] + room_field.size[0] + 140, root.size[1] - self.size[1] - 50)
                 #on_touch_down: if self.collide_point(*args[1].pos): app.start_search_rooms()
-                #on_release: app.choose_room()
+                #on_release: pass
 
                 MDButtonIcon:
                     icon: 'google-classroom'
@@ -176,7 +176,7 @@ MDScreenManager:
                 id: create_room
                 style: 'outlined'
                 pos: (back_to_start_menu.size[0] + 80, root.size[1] - self.size[1] - 50)
-                on_release: app.test_on_start()
+                on_release: app.create_room()
                 MDButtonIcon:
                     icon: 'plus-box'
 
@@ -199,6 +199,15 @@ MDScreenManager:
                 pos_hint: {'center_x': 0.5}
                 pos: (0, 100)
                 on_release: app.can_enter()
+
+                MDButtonText:
+                    text: 'start_game'
+
+            MDButton:
+                style: 'outlined'
+                pos_hint: {'center_x': 0.2}
+                pos: (0, 100)
+                on_release: app.exit_room()
 
                 MDButtonText:
                     text: 'start_game'

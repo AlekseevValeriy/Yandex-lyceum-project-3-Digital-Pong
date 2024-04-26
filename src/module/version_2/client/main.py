@@ -1,6 +1,10 @@
+import asyncio
 import csv
+from time import sleep
+
 import requests
 import json
+import threading
 
 import asynckivy
 from kivymd.app import MDApp
@@ -21,7 +25,6 @@ from src.module.version_2.client.widgets.battle_field_layout import BattleField
 from src.module.version_2.client.widgets.platform import Platform
 from src.module.version_2.client.widgets.ball import Ball
 from src.module.version_2.client.widgets.search_room_field import SearchRoomField
-
 
 # design time values
 current_color = 0
@@ -102,7 +105,6 @@ class DigitalPong(MDApp):
         self.CURRENT_COLOR = (self.CURRENT_COLOR + 1) % len(self.THEME_COLORS)
         self.theme_cls.primary_palette = self.THEME_COLORS[self.CURRENT_COLOR]
 
-
     # button click -> start game
     def can_enter(self):
         if self.root.ids['player_box'].permission_check():
@@ -152,13 +154,14 @@ class DigitalPong(MDApp):
             app.root.current = 'start_screen'
         else:
             if not self.USER_DATA['status']:
-                response = requests.get(f"{self.API}/{action}/{self.root.ids['username_field'].text}/{self.root.ids['password_field'].text}")
-                id = response.json()
-                if type(id) is int:
+                response = requests.get(
+                    f"{self.API}/{action}/{self.root.ids['username_field'].text}/{self.root.ids['password_field'].text}")
+                user_id = response.json()
+                if type(user_id) is int:
                     self.USER_DATA['status'] = True
                     self.USER_DATA['username'] = self.root.ids['username_field'].text
                     self.USER_DATA['password'] = self.root.ids['password_field'].text
-                    self.USER_DATA['user_id'] = id
+                    self.USER_DATA['user_id'] = user_id
                     with open('../../../../data/player_data.json', 'w') as user_data_file:
                         json.dump(self.USER_DATA, user_data_file)
                     self.gate(1)
@@ -168,12 +171,36 @@ class DigitalPong(MDApp):
     def set_username(self) -> None:
         self.root.ids['username_label'].text = self.USER_DATA['username'] if self.USER_DATA['status'] else ""
 
+    def create_room(self):
+        if self.USER_DATA['status']:
+            response = requests.get(f"{self.API}/create_room/{self.USER_DATA['user_id']}/2")
+            room_id = response.json()
+            print(room_id)
+            if type(room_id) is int:
+                self.USER_DATA['place_room_id'] = room_id
+                asynckivy.start(self.update_room())
+                # threading.Thread(target=self.update_room, daemon=True).start()
+
+    async def update_room(self):
+        while self.USER_DATA['place_room_id']:
+            response = requests.get(f"http://127.0.0.1:8080/get_room_users/{self.USER_DATA['place_room_id']}")
+            users = response.json()
+            if type(users) is str:
+                self.root.ids['player_box'].set_users(users)
+            await asynckivy.sleep(5)
+
+    def exit_room(self):
+        if self.USER_DATA['place_room_id']:
+            self.USER_DATA['place_room_id'] = False
+            self.root.ids['player_box'].clear_widgets()
+            requests.get(f"http://127.0.0.1:8080/leave_room/{self.USER_DATA['place_room_id']}")
+
 
 if __name__ == "__main__":
     try:
         app = DigitalPong()
         app.run()
     finally:
-        with open('../../../../data/player_data.json') as user_data_file:
+        with open('../../../../data/player_data.json', 'r') as user_data_file:
             USER_DATA = json.load(user_data_file)
             requests.get(f"http://127.0.0.1:8080/gate/{USER_DATA['user_id']}/0")

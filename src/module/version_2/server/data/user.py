@@ -8,3 +8,4 @@ class User(SqlAlchemyBase):
     username = Column(String, nullable=False)
     password = Column(String, nullable=False)
     status = Column(Boolean, nullable=False, default=False)
+    in_room = Column(Boolean, nullable=False, default=False)
