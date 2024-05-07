@@ -30,6 +30,11 @@ MDScreenManager:
                     font_size: 18
                     color: 'black'
 
+            MDDivider:
+                size_hint_y: .5
+                pos_hint: {"center_x": .5, "center_y": .5}
+                orientation: "vertical"
+
             MDFloatCard:
                 md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
                 size_hint: .33, .33
@@ -60,7 +65,8 @@ MDScreenManager:
                 style: "elevated"
                 theme_width: "Custom"
                 pos_hint: {"x": .05, "top": .95}
-                width: dp(240)
+                #width: dp(240)
+                size_hint_x: 0.125
                 on_release: sys.exit(0)
 
                 MDButtonIcon:
@@ -74,7 +80,8 @@ MDScreenManager:
                 radius: dp(10), dp(10), dp(10), dp(10)
                 style: "elevated"
                 theme_width: "Custom"
-                width: dp(240)
+                #width: dp(240)
+                size_hint_x: 0.125
                 pos_hint: {"x": .05, "top": .85}
                 on_release: app.choice_create_room()
 
@@ -89,7 +96,8 @@ MDScreenManager:
                 radius: dp(10), dp(10), dp(10), dp(10)
                 style: "elevated"
                 theme_width: "Custom"
-                width: dp(240)
+                #width: dp(240)
+                size_hint_x: 0.125
                 pos_hint: {"x": .05, "top": .75}
 
                 MDButtonIcon:
@@ -103,7 +111,8 @@ MDScreenManager:
                 radius: dp(10), dp(10), dp(10), dp(10)
                 style: "elevated"
                 theme_width: "Custom"
-                width: dp(240)
+                #width: dp(240)
+                size_hint_x: 0.125
                 pos_hint: {"x": .05, "top": .65}
                 on_release: app.root.current = "game_state_selection_screen"
 
@@ -118,7 +127,8 @@ MDScreenManager:
                 radius: dp(10), dp(10), dp(10), dp(10)
                 style: "elevated"
                 theme_width: "Custom"
-                width: dp(240)
+                #width: dp(240)
+                size_hint_x: 0.125
                 pos_hint: {"x": .05, "top": .55}
                 on_release: app.change_theme_color()
 
@@ -133,7 +143,8 @@ MDScreenManager:
                 radius: dp(10), dp(10), dp(10), dp(10)
                 style: "elevated"
                 theme_width: "Custom"
-                width: dp(240)
+                #width: dp(240)
+                size_hint_x: 0.125
                 pos_hint: {"x": .05, "top": .45}
                 on_release: app.change_theme()
 
@@ -173,7 +184,8 @@ MDScreenManager:
                 style: "elevated"
                 theme_width: "Custom"
                 pos_hint: {"x": .05, "top": .95}
-                width: dp(240)
+                #width: dp(240)
+                size_hint_x: 0.125
                 on_release: app.root.current = "game_start_menu"
 
                 MDButtonIcon:
@@ -188,7 +200,8 @@ MDScreenManager:
                 style: "elevated"
                 theme_width: "Custom"
                 pos_hint: {"x": .05, "top": .85}
-                width: dp(240)
+                #width: dp(240)
+                size_hint_x: 0.125
                 on_release: pass
 
                 MDButtonIcon:
@@ -202,110 +215,456 @@ MDScreenManager:
                 md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.40609375)
                 radius: dp(12), dp(12), dp(12), dp(12)
                 pos_hint: {"center_x": .5, "top": .95}
-                size_hint: 0.33, 0.70
+                size_hint: 0.40, 0.9
 
                 Label:
                     text: 'Параметры комнаты'
                     font_size: 24
-                    color: 'black'
-                    pos_hint: {"center_x": .5, "center_y": 0.90}
+                    pos_hint: {"center_x": .5, "center_y": 0.92}
 
-                MDFloatCard:
-                    md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
+                MDFloatLayout:
+                    size_hint: .9, .8
+                    pos_hint: {"x": .05, "y": .05}
+
+                    MDFloatCard:
+                        md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
+                        radius: dp(12), dp(12), dp(12), dp(12)
+                        pos_hint: {"center_x": .5, "center_y": 0.15}
+                        size_hint: .9, .07
+                        on_touch_down: if self.collide_point(*args[1].pos): app.open_menu(self, "ball_radius_ofl")
+
+                        Label:
+                            text: 'Радиус шара'
+                            font_size: 16
+                            color: 'black'
+                            pos_hint: {"center_y": 0.5, "center_x": 0.15}
+
+                        Label:
+                            id: ball_radius_ofl
+                            text: "1"
+                            font_size: 16
+                            color: 'black'
+                            pos_hint: {"center_y": 0.5, "center_x": 0.5}
+
+                    MDFloatCard:
+                        md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
+                        radius: dp(12), dp(12), dp(12), dp(12)
+                        pos_hint: {"center_x": .5, "center_y": 0.30}
+                        size_hint: .9, .07
+                        on_touch_down: if self.collide_point(*args[1].pos): app.open_menu(self, "ball_speed_ofl")
+
+                        Label:
+                            text: 'Скорость шара'
+                            font_size: 16
+                            color: 'black'
+                            pos_hint: {"center_y": 0.5, "center_x": 0.15}
+
+                        Label:
+                            id: ball_speed_ofl
+                            text: "2"
+                            font_size: 16
+                            color: 'black'
+                            pos_hint: {"center_y": 0.5, "center_x": 0.5}
+
+                    MDFloatCard:
+                        md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
+                        radius: dp(12), dp(12), dp(12), dp(12)
+                        pos_hint: {"center_x": .5, "center_y": 0.45}
+                        size_hint: .9, .07
+                        on_touch_down: if self.collide_point(*args[1].pos): app.open_menu(self, "ball_boos_ofl")
+
+                        Label:
+                            text: 'Ускорение шара'
+                            font_size: 16
+                            color: 'black'
+                            pos_hint: {"center_y": 0.5, "center_x": 0.15}
+
+                        Label:
+                            id: ball_boos_ofl
+                            text: "1.0"
+                            font_size: 16
+                            color: 'black'
+                            pos_hint: {"center_y": 0.5, "center_x": 0.5}
+
+                    MDFloatCard:
+                        md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
+                        radius: dp(12), dp(12), dp(12), dp(12)
+                        pos_hint: {"center_x": .5, "center_y": 0.60}
+                        size_hint: .9, .07
+                        on_touch_down: if self.collide_point(*args[1].pos): app.open_menu(self, "platform_speed_ofl")
+
+                        Label:
+                            text: 'Скорость платформ'
+                            font_size: 16
+                            color: 'black'
+                            pos_hint: {"center_y": 0.5, "center_x": 0.15}
+
+                        Label:
+                            id: platform_speed_ofl
+                            text: "1"
+                            font_size: 16
+                            color: 'black'
+                            pos_hint: {"center_y": 0.5, "center_x": 0.5}
+
+                    MDFloatCard:
+                        md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
+                        radius: dp(12), dp(12), dp(12), dp(12)
+                        pos_hint: {"center_x": .5, "center_y": 0.75}
+                        size_hint: .9, .07
+                        on_touch_down: if self.collide_point(*args[1].pos): app.open_menu(self, "platform_height_ofl")
+
+                        Label:
+                            text: 'Высота платформ'
+                            font_size: 16
+                            color: 'black'
+                            pos_hint: {"center_y": 0.5, "center_x": 0.15}
+
+                        Label:
+                            id: platform_height_ofl
+                            text: "40"
+                            font_size: 16
+                            color: 'black'
+                            pos_hint: {"center_y": 0.5, "center_x": 0.5}
+
+                    MDFloatCard:
+                        md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
+                        radius: dp(12), dp(12), dp(12), dp(12)
+                        pos_hint: {"center_x": .5, "center_y": 0.90}
+                        size_hint: .9, .07
+                        on_touch_down: if self.collide_point(*args[1].pos): app.open_menu(self, "platform_width_ofl")
+
+                        Label:
+                            text: 'Ширина платформ'
+                            font_size: 16
+                            color: 'black'
+                            pos_hint: {"center_y": 0.5, "center_x": 0.15}
+
+                        Label:
+                            id: platform_width_ofl
+                            text: "5"
+                            font_size: 16
+                            color: 'black'
+                            pos_hint: {"center_y": 0.5, "center_x": 0.5}
+
+    MDScreen:
+        name: "online_room_creation_menu"
+
+        MDFloatLayout:
+            MDButton:
+                radius: dp(10), dp(10), dp(10), dp(10)
+                style: "elevated"
+                theme_width: "Custom"
+                pos_hint: {"x": .05, "top": .95}
+                #width: dp(240)
+                size_hint_x: 0.125
+                on_release: app.root.current = "game_start_menu"
+
+                MDButtonIcon:
+                    icon: "arrow-left-bold"
+
+                MDButtonText:
+                    text: "Назад"
+                    pos_hint: {"center_x": .5, "center_y": .5}
+
+            MDButton:
+                radius: dp(10), dp(10), dp(10), dp(10)
+                style: "elevated"
+                theme_width: "Custom"
+                pos_hint: {"x": .05, "top": .85}
+                #width: dp(240)
+                size_hint_x: 0.125
+                on_release: pass
+
+                MDButtonIcon:
+                    icon: "shape-plus-outline"
+
+                MDButtonText:
+                    text: "Создать"
+                    pos_hint: {"center_x": .5, "center_y": .5}
+
+            MDButton:
+                radius: dp(10), dp(10), dp(10), dp(10)
+                style: "elevated"
+                theme_width: "Custom"
+                pos_hint: {"x": .05, "top": .75}
+                #width: dp(240)
+                size_hint_x: 0.125
+                on_release: pass
+
+                MDButtonIcon:
+                    icon: "magnify"
+
+                MDButtonText:
+                    text: "Искать"
+                    pos_hint: {"center_x": .5, "center_y": .5}
+
+            MDFloatLayout:
+                pos_hint: {"x": .225, "top": .95}
+                size_hint: 1 - (.225  + .05), .9
+
+                MDFloatLayout:
+                    md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.40609375)
+                    size_hint: 1, 1
+                    pos_hint: {"center_x": 0.5, "center_y": 0.5}
                     radius: dp(12), dp(12), dp(12), dp(12)
-                    pos_hint: {"center_x": .5, "center_y": 0.75}
-                    size_hint: .9, .07
-                    on_touch_down: if self.collide_point(*args[1].pos): app.open_menu(self, "speed_ball_vars")
 
                     Label:
-                        text: 'скорость шара'
-                        font_size: 16
+                        text: 'Участники'
+                        font_size: 24
                         color: 'black'
-                        pos_hint: {"center_y": 0.5, "center_x": 0.15}
+                        pos_hint: {"center_x": .25, "center_y": 0.92}
 
                     Label:
-                        id: speed_ball
-                        text: "0"
-                        font_size: 16
+                        text: 'Параметры комнаты'
+                        font_size: 24
                         color: 'black'
-                        pos_hint: {"center_y": 0.5, "center_x": 0.5}
+                        pos_hint: {"center_x": .7, "center_y": 0.92}
 
-                MDFloatCard:
-                    md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
-                    radius: dp(12), dp(12), dp(12), dp(12)
-                    pos_hint: {"center_x": .5, "center_y": 0.60}
-                    size_hint: .9, .07
-                    on_touch_down: if self.collide_point(*args[1].pos): app.open_menu(self, "speed_platforms_vars")
+                    MDFloatLayout:
+                        size_hint: .9, .8
+                        pos_hint: {"x": .05, "y": .05}
+                        #md_bg_color: 'black'
 
-                    Label:
-                        text: 'скорость платформ'
-                        font_size: 16
-                        color: 'black'
-                        pos_hint: {"center_y": 0.5, "center_x": 0.15}
+                        MDFloatLayout:
+                            md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.35609375)
+                            radius: dp(12), dp(12), dp(12), dp(12)
+                            size_hint: .33, .4
+                            pos_hint: {"x": .05, "top": 1}
 
-                    Label:
-                        id: speed_platforms
-                        text: "0"
-                        font_size: 16
-                        color: 'black'
-                        pos_hint: {"center_y": 0.5, "center_x": 0.5}
+                            Label:
+                                text: 'Слева'
+                                font_size: 20
+                                color: 'black'
+                                pos_hint: {"center_x": .5, "center_y": 0.9}
 
-                MDFloatCard:
-                    md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
-                    radius: dp(12), dp(12), dp(12), dp(12)
-                    pos_hint: {"center_x": .5, "center_y": 0.45}
-                    size_hint: .9, .07
-                    on_touch_down: if self.collide_point(*args[1].pos): app.open_menu(self, "width_vars")
+                            MDFloatLayout:
+                                id: player_position_left_1
+                                md_bg_color: (0.890625, 0.87890625, 0.91015625, 1.0)
+                                radius: dp(12), dp(12), dp(12), dp(12)
+                                size_hint: .9, .17
+                                pos_hint: {"center_x": 0.5, "center_y": 0.7}
 
-                    Label:
-                        text: 'ширина плит'
-                        font_size: 16
-                        color: 'black'
-                        pos_hint: {"center_y": 0.5, "center_x": 0.15}
+                            MDFloatLayout:
+                                id: player_position_left_2
+                                md_bg_color: (0.890625, 0.87890625, 0.91015625, 1.0)
+                                radius: dp(12), dp(12), dp(12), dp(12)
+                                size_hint: .9, .17
+                                pos_hint: {"center_x": 0.5, "center_y": 0.45}
 
-                    Label:
-                        id: platforms_width
-                        text: "0"
-                        font_size: 16
-                        color: 'black'
-                        pos_hint: {"center_y": 0.5, "center_x": 0.5}
+                            MDFloatLayout:
+                                id: player_position_left_
+                                md_bg_color: (0.890625, 0.87890625, 0.91015625, 1.0)
+                                radius: dp(12), dp(12), dp(12), dp(12)
+                                size_hint: .9, .17
+                                pos_hint: {"center_x": 0.5, "center_y": 0.2}
 
-                MDFloatCard:
-                    md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
-                    radius: dp(12), dp(12), dp(12), dp(12)
-                    pos_hint: {"center_x": .5, "center_y": 0.30}
-                    size_hint: .9, .07
-                    on_touch_down: if self.collide_point(*args[1].pos): app.open_menu(self, "height_vars")
+                        MDFloatLayout:
+                            md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.35609375)
+                            radius: dp(12), dp(12), dp(12), dp(12)
+                            size_hint: .33, .4
+                            pos_hint: {"x": .05, "y": 0}
 
-                    Label:
-                        text: 'высота платформ'
-                        font_size: 16
-                        color: 'black'
-                        pos_hint: {"center_y": 0.5, "center_x": 0.15}
+                            Label:
+                                text: 'Справа'
+                                font_size: 20
+                                color: 'black'
+                                pos_hint: {"center_x": .5, "center_y": 0.9}
 
-                    Label:
-                        id: platforms_height
-                        text: "0"
-                        font_size: 16
-                        color: 'black'
-                        pos_hint: {"center_y": 0.5, "center_x": 0.5}
+                            MDFloatLayout:
+                                id: player_position_right_1
+                                md_bg_color: (0.890625, 0.87890625, 0.91015625, 1.0)
+                                radius: dp(12), dp(12), dp(12), dp(12)
+                                size_hint: .9, .17
+                                pos_hint: {"center_x": 0.5, "center_y": 0.7}
 
-                MDFloatCard:
-                    md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
-                    radius: dp(12), dp(12), dp(12), dp(12)
-                    pos_hint: {"center_x": .5, "center_y": 0.15}
-                    size_hint: .9, .07
-                    on_touch_down: if self.collide_point(*args[1].pos): app.open_menu(self, "radius_ball_vars")
+                            MDFloatLayout:
+                                id: player_position_right_2
+                                md_bg_color: (0.890625, 0.87890625, 0.91015625, 1.0)
+                                radius: dp(12), dp(12), dp(12), dp(12)
+                                size_hint: .9, .17
+                                pos_hint: {"center_x": 0.5, "center_y": 0.45}
 
-                    Label:
-                        text: 'радиус шара'
-                        font_size: 16
-                        color: 'black'
-                        pos_hint: {"center_y": 0.5, "center_x": 0.15}
+                            MDFloatLayout:
+                                id: player_position_right_3
+                                md_bg_color: (0.890625, 0.87890625, 0.91015625, 1.0)
+                                radius: dp(12), dp(12), dp(12), dp(12)
+                                size_hint: .9, .17
+                                pos_hint: {"center_x": 0.5, "center_y": 0.2}
 
-                    Label:
-                        id: radius_ball
-                        text: "0"
-                        font_size: 16
-                        color: 'black'
-                        pos_hint: {"center_y": 0.5, "center_x": 0.5}
+                        MDFloatLayout:
+                            md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.35609375)
+                            radius: dp(12), dp(12), dp(12), dp(12)
+                            size_hint: .45, 1
+                            pos_hint: {"right": .95, "y": 0}
+
+                            MDFloatCard:
+                                md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
+                                radius: dp(12), dp(12), dp(12), dp(12)
+                                pos_hint: {"center_x": .5, "center_y": 0.90}
+                                size_hint: .90, .08
+                                on_touch_down: if self.collide_point(*args[1].pos): app.open_menu(self, "bots_can")
+
+                                Label:
+                                    id: bots_can
+                                    text: "False"
+                                    font_size: 16
+                                    color: 'black'
+                                    pos_hint: {"center_y": 0.5, "center_x": 0.6}
+
+                                Label:
+                                    text: 'Наличие ботов'
+                                    font_size: 16
+                                    color: 'black'
+                                    pos_hint: {"center_x": 0.2, "center_y": 0.5}
+
+
+
+                            MDFloatCard:
+                                md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
+                                radius: dp(12), dp(12), dp(12), dp(12)
+                                pos_hint: {"center_x": .5, "center_y": 0.78}
+                                size_hint: .90, .08
+                                on_touch_down: if self.collide_point(*args[1].pos): app.open_menu(self, "users_quantity")
+
+                                Label:
+                                    id: users_quantity
+                                    text: "1"
+                                    font_size: 16
+                                    color: 'black'
+                                    pos_hint: {"center_y": 0.5, "center_x": 0.6}
+
+                                Label:
+                                    text: 'Количество участников'
+                                    font_size: 16
+                                    color: 'black'
+                                    pos_hint: {"center_x": 0.2, "center_y": 0.5}
+
+
+
+                            MDFloatCard:
+                                md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
+                                radius: dp(12), dp(12), dp(12), dp(12)
+                                pos_hint: {"center_x": .5, "center_y": 0.66}
+                                size_hint: .90, .08
+                                on_touch_down: if self.collide_point(*args[1].pos): app.open_menu(self, "ball_radius_onl")
+
+                                Label:
+                                    id: ball_radius_onl
+                                    text: "1"
+                                    font_size: 16
+                                    color: 'black'
+                                    pos_hint: {"center_y": 0.5, "center_x": 0.6}
+
+                                Label:
+                                    text: 'Радиус шара'
+                                    font_size: 16
+                                    color: 'black'
+                                    pos_hint: {"center_x": 0.2, "center_y": 0.5}
+
+
+
+                            MDFloatCard:
+                                md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
+                                radius: dp(12), dp(12), dp(12), dp(12)
+                                pos_hint: {"center_x": .5, "center_y": 0.54}
+                                size_hint: .90, .08
+                                on_touch_down: if self.collide_point(*args[1].pos): app.open_menu(self, "ball_speed_onl")
+
+                                Label:
+                                    id: ball_speed_onl
+                                    text: "1"
+                                    font_size: 16
+                                    color: 'black'
+                                    pos_hint: {"center_y": 0.5, "center_x": 0.6}
+
+                                Label:
+                                    text: 'Скорость шара'
+                                    font_size: 16
+                                    color: 'black'
+                                    pos_hint: {"center_x": 0.2, "center_y": 0.5}
+
+
+
+                            MDFloatCard:
+                                md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
+                                radius: dp(12), dp(12), dp(12), dp(12)
+                                pos_hint: {"center_x": .5, "center_y": 0.42}
+                                size_hint: .90, .08
+                                on_touch_down: if self.collide_point(*args[1].pos): app.open_menu(self, "ball_boos_onl")
+
+                                Label:
+                                    id: ball_boos_onl
+                                    text: "1.0"
+                                    font_size: 16
+                                    color: 'black'
+                                    pos_hint: {"center_y": 0.5, "center_x": 0.6}
+
+                                Label:
+                                    text: 'Ускорение шара'
+                                    font_size: 16
+                                    color: 'black'
+                                    pos_hint: {"center_x": 0.2, "center_y": 0.5}
+
+
+
+                            MDFloatCard:
+                                md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
+                                radius: dp(12), dp(12), dp(12), dp(12)
+                                pos_hint: {"center_x": .5, "center_y": 0.30}
+                                size_hint: .90, .08
+                                on_touch_down: if self.collide_point(*args[1].pos): app.open_menu(self, "platform_speed_onl")
+
+                                Label:
+                                    id: platform_speed_onl
+                                    text: "1"
+                                    font_size: 16
+                                    color: 'black'
+                                    pos_hint: {"center_y": 0.5, "center_x": 0.6}
+
+                                Label:
+                                    text: 'Скорость платформ'
+                                    font_size: 16
+                                    color: 'black'
+                                    pos_hint: {"center_x": 0.2, "center_y": 0.5}
+
+
+
+                            MDFloatCard:
+                                md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
+                                radius: dp(12), dp(12), dp(12), dp(12)
+                                pos_hint: {"center_x": .5, "center_y": 0.18}
+                                size_hint: .90, .08
+                                on_touch_down: if self.collide_point(*args[1].pos): app.open_menu(self, "platform_height_onl")
+
+                                Label:
+                                    id: platform_height_onl
+                                    text: "40"
+                                    font_size: 16
+                                    color: 'black'
+                                    pos_hint: {"center_y": 0.5, "center_x": 0.6}
+
+                                Label:
+                                    text: 'Высота платформ'
+                                    font_size: 16
+                                    color: 'black'
+                                    pos_hint: {"center_x": 0.2, "center_y": 0.5}
+
+                            MDFloatCard:
+                                md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
+                                radius: dp(12), dp(12), dp(12), dp(12)
+                                pos_hint: {"center_x": .5, "center_y": 0.06}
+                                size_hint: .90, .08
+                                on_touch_down: if self.collide_point(*args[1].pos): app.open_menu(self, "platform_width_onl")
+
+                                Label:
+                                    id: platform_width_onl
+                                    text: "5"
+                                    font_size: 16
+                                    color: 'black'
+                                    pos_hint: {"center_y": 0.5, "center_x": 0.6}
+
+                                Label:
+                                    text: 'Ширина платформ'
+                                    font_size: 16
+                                    color: 'black'
+                                    pos_hint: {"center_x": 0.2, "center_y": 0.5}

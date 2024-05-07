@@ -27,7 +27,6 @@ class DigitalPong(MDApp):
 
 	def on_start(self):
 		super().on_start()
-		print(len(self.THEMES))
 		self.root.current = "game_start_menu" if self.situation else "game_state_selection_screen"
 		self.change_theme_color(plus=False)
 		self.change_theme(self.SETTINGS["current_theme"])
@@ -43,21 +42,23 @@ class DigitalPong(MDApp):
 		upload('settings', settings)
 
 	def choice_create_room(self):
-		print(self.situation)
+		# поменять окно на диалог, для красоты и уменьшения давления, скукоты, пустоты
 		match self.situation:
 			case "offline":
 				self.root.current = "offline_room_creation_menu"
 			case "online":
-				...
+				self.root.current = "online_room_creation_menu"
 
 	def change_theme_color(self, plus: bool = True, set: bool = True):
 		if set:
-			self.theme_cls.primary_palette = self.THEMES[self.SETTINGS["current_theme_color"]]
 			if plus:
 				self.SETTINGS["current_theme_color"] = (self.SETTINGS["current_theme_color"] + 1) % 146
 				settings = download("settings")
 				settings['current_theme_color'] = self.SETTINGS["current_theme_color"]
 				upload('settings', settings)
+				self.theme_cls.primary_palette = self.THEMES[self.SETTINGS["current_theme_color"]]
+			else:
+				self.theme_cls.primary_palette = self.THEMES[self.SETTINGS["current_theme_color"]]
 		else:
 			self.theme_cls.primary_palette = self.THEMES[10]
 
@@ -72,21 +73,48 @@ class DigitalPong(MDApp):
 
 	def open_menu(self, item: Widget, variant: str) -> None:
 		match variant:
-			case "speed_platforms_vars":
+			case "platform_speed_ofl":
+				variants = [*range(1, 11)]
+				widget = self.root.ids.platform_speed_ofl
+			case "ball_speed_ofl":
+				variants = [*range(2, 21)]
+				widget = self.root.ids.ball_speed_ofl
+			case "platform_width_ofl":
+				variants = [*range(5, 21)]
+				widget = self.root.ids.platform_width_ofl
+			case "platform_height_ofl":
+				variants = [*range(40, 201)]
+				widget = self.root.ids.platform_height_ofl
+			case "ball_radius_ofl":
+				variants = [*range(1, 51)]
+				widget = self.root.ids.ball_radius_ofl
+			case "ball_boos_ofl":
+				variants = [*map(lambda x: f"{x / 10:.1f}", range(10, 21))]
+				widget = self.root.ids.ball_boos_ofl
+			case "bots_can":
+				variants = [True, False]
+				widget = self.root.ids.bots_can
+			case "users_quantity":
+				variants = [*range(1, 7)]
+				widget = self.root.ids.users_quantity
+			case "ball_radius_onl":
+				variants = [*range(1, 11)]
+				widget = self.root.ids.ball_radius_onl
+			case "ball_speed_onl":
+				variants = [*range(1, 21)]
+				widget = self.root.ids.ball_speed_onl
+			case "ball_boos_onl":
+				variants = [*map(lambda x: f"{x / 10:.1f}", range(10, 21))]
+				widget = self.root.ids.ball_boos_onl
+			case "platform_speed_onl":
 				variants = [*range(1, 10)]
-				widget = self.root.ids.speed_platforms
-			case "speed_ball_vars":
-				variants = [*range(2, 20)]
-				widget = self.root.ids.speed_ball
-			case "width_vars":
-				variants = [*range(5, 20)]
-				widget = self.root.ids.platforms_width
-			case "height_vars":
-				variants = [*range(40, 200)]
-				widget = self.root.ids.platforms_height
-			case "radius_ball_vars":
-				variants = [*range(1, 50)]
-				widget = self.root.ids.radius_ball
+				widget = self.root.ids.platform_speed_onl
+			case "platform_height_onl":
+				variants = [*range(40, 201)]
+				widget = self.root.ids.platform_height_onl
+			case "platform_width_onl":
+				variants = [*range(5, 21)]
+				widget = self.root.ids.platform_width_onl
 			case _:
 				variants = [None]
 				widget = None
