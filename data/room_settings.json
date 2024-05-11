@@ -1,0 +1,58 @@
+{
+  "bots_can": {
+    "interval": false,
+    "data": [
+      true,
+      false
+    ]
+  },
+  "users_quantity": {
+    "interval": true,
+    "data": [
+      1,
+      7
+    ]
+  },
+  "platform_speed": {
+    "interval": true,
+    "data": [
+      1,
+      11
+    ]
+  },
+  "ball_speed": {
+    "interval": true,
+    "data": [
+      1,
+      21
+    ]
+  },
+  "ball_radius": {
+    "interval": true,
+    "data": [
+      1,
+      11
+    ]
+  },
+  "platform_width": {
+    "interval": true,
+    "data": [
+      5,
+      21
+    ]
+  },
+  "platform_height": {
+    "interval": true,
+    "data": [
+      40,
+      201
+    ]
+  },
+  "ball_boost": {
+    "interval": true,
+    "data": [
+      10,
+      21
+    ]
+  }
+}

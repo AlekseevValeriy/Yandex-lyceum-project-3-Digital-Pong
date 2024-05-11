@@ -30,6 +30,10 @@ def get_tokens() -> Response:
 @app.route('/registration/<string:username>/<string:password>', methods=["POST"])
 @catch_error
 def registration(username: str, password: str) -> Response:
+    if len(username) > 16: raise UsernameLengthLimit
+    if not username.replace('_', "").isalpha(): raise UsernameInvalidCharacters
+    if len(password) > 20: raise PasswordLengthLimit
+
     users = db_session_app.query(User).filter(User.username == username)
     if tuple(users):
         users = users.first()
@@ -49,12 +53,9 @@ def registration(username: str, password: str) -> Response:
     return jsonify(0)
 
 
-@app.route('/delete_user/<string:username>/<string:villain_username>', methods=["DELETE"])
+@app.route('/delete_user/<string:username>', methods=["DELETE"])
 @catch_error
-def delete_user(username: str, villain_username: str) -> Response:
-    villain = db_session_app.query(Token).filter(Token.username == villain_username).first()
-    if not villain: raise UserNotExists
-    if TokenVerification.verification(villain.token) != "admin": raise RightsIssue
+def delete_user(username: str) -> Response:
     user = db_session_app.query(User).filter(User.username == username).first()
     if not user: raise UserNotExists
     db_session_app.delete(user)
@@ -67,8 +68,9 @@ def delete_user(username: str, villain_username: str) -> Response:
 @app.route('/log/<string:side>/<string:username>/<string:password>', methods=["GET", "POST"])
 @catch_error
 def log(side: str, username: str, password: str) -> Response:
-    user = db_session_app.query(User).filter(User.username == username, User.password == password).first()
+    user = db_session_app.query(User).filter(User.username == username).first()
     if not user: raise UserNotExists
+    if user.password != password: raise PasswordIncorrect
     match side:
         case 'in':
             side = True
@@ -79,8 +81,6 @@ def log(side: str, username: str, password: str) -> Response:
         case _:
             raise ValueError
 
-    user = db_session_app.query(User).filter(User.username == username, User.password == password).first()
-    if not user: raise UserNotExists
     user.in_system = side
     db_session_app.add(user)
     db_session_app.commit()
