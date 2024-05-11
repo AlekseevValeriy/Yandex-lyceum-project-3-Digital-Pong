@@ -5,59 +5,6 @@ MDScreenManager:
     md_bg_color: self.theme_cls.backgroundColor
 
     MDScreen:
-        name: "game_state_selection_screen"
-
-        MDFloatLayout:
-
-            MDFloatCard:
-                md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
-                size_hint: .33, .33
-                pos_hint: {'center_x': .33, 'center_y': .5}
-                size_hint: (0.25, 0.3)
-                radius: dp(36), dp(36), dp(36), dp(36)
-                on_touch_down: if self.collide_point(*args[1].pos): app.choice_state_enter("online")
-
-                Label:
-                    pos_hint: {'center_x': .5, 'center_y': .65}
-                    text: 'ОНЛАЙН'
-                    font_size: 18
-                    color: 'black'
-
-                Label:
-                    pos_hint: {'center_x': .5, 'center_y': .35}
-                    text:'Вы будете играть лишь с реальными людьми\nИметь аккаунт обязательно'
-                    halign: 'center'
-                    font_size: 18
-                    color: 'black'
-
-            MDDivider:
-                size_hint_y: .5
-                pos_hint: {"center_x": .5, "center_y": .5}
-                orientation: "vertical"
-
-            MDFloatCard:
-                md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
-                size_hint: .33, .33
-                pos_hint: {'center_x': .66, 'center_y': .5}
-                size_hint: .25, .3
-                radius: dp(36), dp(36), dp(36), dp(36)
-                on_touch_down: if self.collide_point(*args[1].pos): app.choice_state_enter("offline")
-
-                Label:
-                    pos_hint: {'center_x': .5, 'center_y': .65}
-                    text: 'ОФФЛАЙН'
-                    font_size: 18
-                    font_kerning: 10
-                    color: 'black'
-
-                Label:
-                    pos_hint: {'center_x': .5, 'center_y': .35}
-                    text: 'Вы будете играть лишь ботами\nИметь аккаунт не обязательно'
-                    halign: 'center'
-                    font_size: 18
-                    color: 'black'
-
-    MDScreen:
         name: "game_start_menu"
         MDFloatLayout:
             MDButton:
@@ -114,7 +61,7 @@ MDScreenManager:
                 #width: dp(240)
                 size_hint_x: 0.125
                 pos_hint: {"x": .05, "top": .65}
-                on_release: app.root.current = "game_state_selection_screen"
+                on_release: app.DIALOG_MANAGER("situation_choice")
 
                 MDButtonIcon:
                     icon: "wrench"
@@ -163,18 +110,28 @@ MDScreenManager:
                 outline_width: 2
                 pos_hint: {"center_x": .5, "center_y": .55}
 
-            MDFloatCard:
+            MDBoxCard:
+                orientation: 'horizontal'
                 md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
                 pos_hint: {'right': .95, 'top': .95}
-                size_hint: .125, .05
+                size_hint: .17, .05
                 radius: dp(16), dp(16), dp(16), dp(16)
+                padding: [dp(15), 0, dp(15), 0]
+                #on_touch_down: if self.collide_point(*args[1].pos): app.open_dialog("user_log")
 
                 Label:
-                    pos_hint: {"center_x": .5, "center_y": .5}
-                    text: '0123456789ABCDEF'
+                    id: user_name
+                    text: ''
                     font_size: 24
                     color: 'gray'
                     font_name: "../../../data/fonts/MonospaceBold.ttf"
+
+                MDIconButton:
+                    id: situation_icon
+                    icon: ""
+                    disabled: True
+                    pos_hint: {"center_y": 0.5}
+
 
     MDScreen:
         name: "offline_room_creation_menu"
@@ -221,6 +178,7 @@ MDScreenManager:
                     text: 'Параметры комнаты'
                     font_size: 24
                     pos_hint: {"center_x": .5, "center_y": 0.92}
+                    color: "black"
 
                 MDFloatLayout:
                     size_hint: .9, .8
