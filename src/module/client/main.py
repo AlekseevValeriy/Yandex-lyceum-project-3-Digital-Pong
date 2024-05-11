@@ -1,4 +1,9 @@
-from typing import Callable
+import sys
+from typing import Callable, Any
+from webbrowser import open
+
+from kivymd.uix.slider import MDSlider, MDSliderHandle, MDSliderValueLabel
+from requests import exceptions
 
 import asynckivy
 from kivy.metrics import dp
@@ -10,18 +15,20 @@ from kivy.config import Config
 from kivy.core.window import Window
 from kivymd.uix.button import MDButton, MDButtonText
 from kivymd.uix.divider import MDDivider
-from kivymd.uix.list import MDListItem, MDListItemLeadingIcon, MDListItemSupportingText
+from kivymd.uix.list import MDListItem, MDListItemLeadingIcon, MDListItemSupportingText, MDListItemTertiaryText, \
+	MDListItemTrailingCheckbox
 from kivymd.uix.menu import MDDropdownMenu
 from kivy.uix.widget import Widget
 from kivymd.uix.dialog import (MDDialogIcon, MDDialogHeadlineText, MDDialogSupportingText,
 							   MDDialogContentContainer, MDDialogButtonContainer)
-from kivymd.uix.textfield import MDTextField, MDTextFieldHintText, MDTextFieldMaxLengthText
+from kivymd.uix.textfield import MDTextField, MDTextFieldHintText, MDTextFieldMaxLengthText, MDTextFieldHelperText
 
-from data_loader import download, upload, download_themes
+from data_loader import download, upload, download_themes, download_menu
 
 from src.module.client.widgets.custommdcard import MDFloatCard, MDBoxCard
 from src.module.client.widgets.custommddialog import CustomMDDialog
 from dialog_manager import DialogManager
+from server_requests import user_log, user_registration, user_delete
 
 
 class DigitalPong(MDApp):
@@ -31,7 +38,8 @@ class DigitalPong(MDApp):
 	THEMES = download_themes()
 	SETTINGS = download("settings")
 	DATA = download("data")
-	get_situation = lambda n: n.split('_')[-1]
+	MENU_DATA = download_menu()
+	MENU_DATA["ball_boost"] = tuple(map(lambda x: f"{x / 10:.1f}", MENU_DATA["ball_boost"]))
 
 	DIALOG_MANAGER = DialogManager()
 
@@ -46,9 +54,20 @@ class DigitalPong(MDApp):
 		self.set_dialogs()
 		self.change_theme_color(plus=False)
 		self.change_theme(self.SETTINGS["current_theme"])
+
+		if self.DATA["username"] and self.DATA["password"]:
+			response = user_log("in", username=self.DATA["username"], password=self.DATA["password"])
+			if type(response) is dict:
+				self.DIALOG_MANAGER("alert", header=f'Проблема - {response["status_code"]}',
+									support_text=f"{response["message"]}")
+			self.start(self.set_username, self.DATA["username"])
+
 		if not self.SETTINGS['situation']:
-			# raise dialog situation choice
-			...
+			self.DIALOG_MANAGER("situation_choice")
+		else:
+			self.start(self.set_icon, 'signal' if self.SETTINGS['situation'] == 'online' else "signal-off")
+			if self.SETTINGS['situation'] == 'online' and not self.DATA['username'] and not self.DATA['password']:
+				self.DIALOG_MANAGER("user_enter_choice")
 
 	def build(self) -> Builder:
 		return self.builder
@@ -69,7 +88,7 @@ class DigitalPong(MDApp):
 					),
 					theme_bg_color="Custom",
 					md_bg_color=self.theme_cls.transparentColor,
-					on_release=lambda item: asynckivy.start(self.choice_state_enter("offline", item))
+					on_release=lambda item: self.start(self.choice_state_enter, "offline", item)
 				),
 				MDDivider(orientation="vertical"),
 				MDListItem(
@@ -81,7 +100,7 @@ class DigitalPong(MDApp):
 					),
 					theme_bg_color="Custom",
 					md_bg_color=self.theme_cls.transparentColor,
-					on_release=lambda item: asynckivy.start(self.choice_state_enter("online", item))
+					on_release=lambda item: self.start(self.choice_state_enter, "online", item)
 
 				),
 				MDDivider(orientation="vertical"),
@@ -107,7 +126,7 @@ class DigitalPong(MDApp):
 					),
 					theme_bg_color="Custom",
 					md_bg_color=self.theme_cls.transparentColor,
-					# on_release=self.login
+					on_release=lambda item: self.DIALOG_MANAGER("login", item)
 				),
 				MDListItem(
 					MDListItemLeadingIcon(
@@ -118,7 +137,7 @@ class DigitalPong(MDApp):
 					),
 					theme_bg_color="Custom",
 					md_bg_color=self.theme_cls.transparentColor,
-					# on_release=self.registration
+					on_release=lambda item: self.DIALOG_MANAGER("registration", item)
 				),
 				MDDivider(),
 				orientation="vertical"
@@ -138,11 +157,22 @@ class DigitalPong(MDApp):
 						icon="badge-account-horizontal"
 					),
 					MDListItemSupportingText(
-						text="0123456789ABCDEF"
+						text=""
 					),
 					theme_bg_color="Custom",
 					md_bg_color=self.theme_cls.transparentColor,
 					# on_release=self.rename_confirm
+				),
+				MDDivider(),
+				MDListItem(
+					MDListItemLeadingIcon(
+						icon="identifier"
+					),
+					MDListItemSupportingText(
+						text=""
+					),
+					theme_bg_color="Custom",
+					md_bg_color=self.theme_cls.transparentColor,
 				),
 				MDDivider(),
 				orientation="vertical",
@@ -154,42 +184,41 @@ class DigitalPong(MDApp):
 						text="УДАЛИТЬ"
 					),
 					style="text",
-					# on_release=self.delete_confirm
+					on_release=lambda item: self.DIALOG_MANAGER("delete_account_warning", item)
 				),
 				MDButton(
 					MDButtonText(
 						text="ВЫЙТИ ИЗ АККАУНТА"
 					),
 					style="text",
-					# on_release=self.quit_confirm
+					on_release=lambda item: self.DIALOG_MANAGER("exit_from_account_warning", item)
 				),
 				spacing=dp(8)
 			),
 		)
-		unseen_circumstances_alert = lambda **kwargs: CustomMDDialog(
+		alert = lambda **kwargs: CustomMDDialog(
 			MDDialogHeadlineText(
-				text="Непредвиденные обстоятельства"
+				text=" "
 			),
 			MDDialogSupportingText(
-				text=kwargs["message"],
+				text=" ",
 				halign="left"
 			),
 			MDDialogButtonContainer(
 				Widget(),
 				MDButton(
 					MDButtonText(text="ОК"),
-					style="text"
-					# on_release=lambda item: self.dismiss_dialog(item, progenitor=4)
+					style="text",
+					on_release=kwargs["ok_action"]
 				),
 				spacing="8dp"
 			),
 		)
-		self.DIALOG_MANAGER["login_alert"] = unseen_circumstances_alert(
-			message="Пользователя с такими данными не существует. "
-					"Пожалуйста, введите корректные данные, либо зарегистрируете новый аккаунт.")
-		self.DIALOG_MANAGER["registration_alert"] = unseen_circumstances_alert(
-			message="Пользователь с таким именем уже существует. "
-					"Пожалуйста, введите другое имя.")
+		self.DIALOG_MANAGER["alert"] = alert(ok_action=lambda item: self.DIALOG_MANAGER("alert"))
+		# message="Пользователя с такими данными не существует. "
+		# 		"Пожалуйста, введите корректные данные, либо зарегистрируете новый аккаунт.",
+		# message="Пользователь с таким именем уже существует. "
+		# 		"Пожалуйста, введите другое имя.",
 
 		data_input = lambda **kwargs: CustomMDDialog(
 			MDDialogIcon(
@@ -203,10 +232,6 @@ class DigitalPong(MDApp):
 					MDTextFieldHintText(
 						text="Имя пользователя"
 					),
-					# MDTextFieldHelperText(
-					# 	text="Helper text",
-					# 	mode="persistent"
-					# ),
 					MDTextFieldMaxLengthText(
 						max_text_length=16) if kwargs['reg'] else None,
 					mode="outlined"
@@ -215,10 +240,6 @@ class DigitalPong(MDApp):
 					MDTextFieldHintText(
 						text="Пароль"
 					),
-					# MDTextFieldHelperText(
-					# 	text="Helper text",
-					# 	mode="persistent"
-					# ),
 					MDTextFieldMaxLengthText(
 						max_text_length=20) if kwargs['reg'] else None,
 					mode="outlined"),
@@ -232,12 +253,12 @@ class DigitalPong(MDApp):
 						text="НАЗАД"
 					),
 					style="text",
-					# on_release=self.back_to_user_log
+					on_release=kwargs['back_action']
 				),
 				MDButton(
 					MDButtonText(text=kwargs["confirm_text"]),
 					style="text",
-					# on_release=kwargs["confirm_action"]
+					on_release=kwargs["confirm_action"]
 				),
 				spacing="8dp",
 			),
@@ -245,12 +266,14 @@ class DigitalPong(MDApp):
 		self.DIALOG_MANAGER["registration"] = data_input(
 			icon="account-plus",
 			confirm_text="ЗАРЕГЕСТРИРОВАТЬСЯ",
-			# confirm_action=lambda item: self.log_reg_confirm(item, variant="registration"),
+			back_action=lambda item: self.DIALOG_MANAGER("registration", item),
+			confirm_action=lambda item: self.start(self.registration),
 			reg=True)
 		self.DIALOG_MANAGER["login"] = data_input(
 			icon="account-badge",
 			confirm_text="ВОЙТИ",
-			# confirm_action=lambda item: self.log_reg_confirm(item, variant="login"),
+			back_action=lambda item: self.DIALOG_MANAGER("login", item),
+			confirm_action=lambda item: self.start(self.login),
 			reg=False)
 		confirm_alert = lambda **kwargs: CustomMDDialog(
 			MDDialogHeadlineText(
@@ -265,27 +288,30 @@ class DigitalPong(MDApp):
 				MDButton(
 					MDButtonText(text="ОТМЕНА"),
 					style="text",
-					# on_release=lambda item: self.dismiss_dialog(item, progenitor=4)
+					on_release=kwargs["cancel_action"]
 				),
 				MDButton(
 					MDButtonText(text="ПОДТВЕРДИТЬ"),
 					style="text",
-					# on_release=kwargs['confirm_action']
+					on_release=kwargs['confirm_action']
 				),
 				spacing="8dp",
 			),
 		)
 		self.DIALOG_MANAGER["rename_warning"] = confirm_alert(
 			message="Вы точно желаете сменить имя своего аккаунта?",
-			# confirm_action=self.rename
+			confirm_action=print,
+			cancel_action=lambda item: self.DIALOG_MANAGER("rename_warning", item)
 		)
 		self.DIALOG_MANAGER["delete_account_warning"] = confirm_alert(
 			message="Вы точно желаете удалить свой аккаунт навсегда?",
-			# confirm_action=self.delete
+			confirm_action=lambda item: self.exit_for_account(forever=True, item=item),
+			cancel_action=lambda item: self.DIALOG_MANAGER("delete_account_warning", item)
 		)
 		self.DIALOG_MANAGER["exit_from_account_warning"] = confirm_alert(
 			message="Вы точно желаете выйти из своего аккаунта?",
-			# confirm_action=self.quit
+			confirm_action=lambda item: self.exit_for_account(forever=False, item=item),
+			cancel_action=lambda item: self.DIALOG_MANAGER("exit_from_account_warning", item)
 		)
 		self.DIALOG_MANAGER['rename'] = CustomMDDialog(
 			MDDialogHeadlineText(
@@ -296,10 +322,6 @@ class DigitalPong(MDApp):
 					MDTextFieldHintText(
 						text="Имя пользователя"
 					),
-					# MDTextFieldHelperText(
-					# 	text="Helper text",
-					# 	mode="persistent"
-					# ),
 					MDTextFieldMaxLengthText(max_text_length=16),
 					mode="outlined"),
 				orientation="vertical"
@@ -320,6 +342,104 @@ class DigitalPong(MDApp):
 				),
 				spacing="8dp"
 			),
+		)
+		self.DIALOG_MANAGER["project_info"] = CustomMDDialog(
+			MDDialogHeadlineText(
+				text="Проект"
+			),
+			MDDialogContentContainer(
+				MDListItem(
+					MDListItemLeadingIcon(
+						icon="dev-to",
+					),
+					MDListItemSupportingText(
+						text="Алексеев  Валерий  Евгеньевич"
+					),
+					MDListItemSupportingText(
+						text="программист  ×  интерфейсный  дизайнер  ×  продюсер"
+
+					),
+					MDListItemTertiaryText(
+						text="студент  ВСПК  -  первого  курса  09.02.07"
+					),
+					theme_bg_color="Custom",
+					md_bg_color=self.theme_cls.transparentColor,
+					on_release=lambda item: self.start(self.open_git, "https://github.com/AlekseevValeriy")
+				),
+				MDListItem(
+					MDListItemLeadingIcon(
+						icon="application-edit-outline"
+					),
+					MDListItemSupportingText(
+						text="Digital  Pong"
+					),
+					MDListItemSupportingText(
+						text="интерфейс  -  Kivy  ×  KivyMD"
+					),
+					MDListItemTertiaryText(
+						text="сервер  -  Flask  ×  SQLAlchemy"
+					),
+					theme_bg_color="Custom",
+					md_bg_color=self.theme_cls.transparentColor,
+					on_release=lambda item: self.start(self.open_git,
+													   "https://github.com/AlekseevValeriy/Yandex-lyceum-project-3-Digital-Pong")
+				),
+				MDDivider(orientation="vertical"),
+				orientation="vertical"
+			),
+			on_dismiss=lambda item: self.DIALOG_MANAGER("situation_choice", only_status=True, item=item)
+		)
+		self.DIALOG_MANAGER["search_filter"] = CustomMDDialog(
+			MDDialogHeadlineText(
+				text="Установите фильтры"
+			),
+			MDDialogContentContainer(
+				MDTextField(
+					MDTextFieldHintText(
+						text="ID комнаты"
+					),
+					mode="outlined"),
+				MDDivider(),
+				MDTextField(
+					MDTextFieldHintText(
+						text="Лимит пользователей"
+					),
+					MDTextFieldHelperText(
+						text="максимальный лимит 6",
+						mode="on_focus"),
+					mode="outlined"),
+				MDDivider(),
+				MDListItem(
+					MDListItemSupportingText(
+						text="Наличие в комнате ботов"
+					),
+					MDListItemTrailingCheckbox(),
+					theme_bg_color="Custom",
+					md_bg_color=self.theme_cls.transparentColor,
+				),
+				MDDivider(),
+				MDListItem(
+					MDListItemSupportingText(
+						text="Только открытые"
+					),
+					MDListItemTrailingCheckbox(),
+					theme_bg_color="Custom",
+					md_bg_color=self.theme_cls.transparentColor,
+				),
+				orientation="vertical",
+				spacing=dp(20)
+			),
+			MDDialogButtonContainer(
+				Widget(),
+				MDButton(
+					MDButtonText(
+						text="ИСКАТЬ"
+					),
+					style="text",
+					# on_release=lambda item: self.dismiss_dialog(item, progenitor=4)
+				),
+				Widget()
+			)
 		)
 
 	# V------BUTTONS------V #
@@ -346,57 +466,61 @@ class DigitalPong(MDApp):
 			settings['current_theme'] = 0 if self.theme_cls.theme_style == "Dark" else 1
 			upload('settings', settings)
 
-	def open_menu(self, item: Widget, variant: str) -> None:
+	def open_menu(self, variant: str, item: Widget = None) -> None:
 		def action(situation: str, offline: Callable, online: Callable) -> Callable:
-			match situation:
+			match situation.split('_')[-1]:
 				case "ofl":
 					return offline
 				case "onl":
 					return online
 
+		def add_item(element: Any) -> dict:
+			return {"text": f"{element}", "on_release": lambda: self.menu_callback(widget, f"{element}")}
+
 		match variant:
 			case "bots_can":
-				variants = [True, False]
+				variation = self.MENU_DATA["bots_can"]
 				widget = self.root.ids.bots_can
 			case "users_quantity":
-				variants = [*range(1, 7)]
+				variation = self.MENU_DATA["users_quantity"]
 				widget = self.root.ids.users_quantity
 			case "platform_speed_ofl" | "platform_speed_onl":
-				variants = [*range(1, 11)]
-				widget = action(self.get_situation(variant),
-								self.root.ids.platform_speed_ofl, self.root.ids.platform_speed_onl)
+				variation = self.MENU_DATA["platform_speed"]
+				widget = action(variant, self.root.ids.platform_speed_ofl, self.root.ids.platform_speed_onl)
 			case "ball_speed_ofl" | "ball_speed_onl":
-				variants = [*range(1, 21)]
-				widget = action(self.get_situation(variant),
-								self.root.ids.ball_speed_ofl, self.root.ids.ball_speed_onl)
+				variation = self.MENU_DATA["ball_speed"]
+				widget = action(variant, self.root.ids.ball_speed_ofl, self.root.ids.ball_speed_onl)
 			case "ball_radius_ofl" | "ball_radius_onl":
-				variants = [*range(1, 11)]
-				widget = action(self.get_situation(variant),
-								self.root.ids.ball_radius_ofl, self.root.ids.ball_radius_onl)
+				variation = self.MENU_DATA["ball_radius"]
+				widget = action(variant, self.root.ids.ball_radius_ofl, self.root.ids.ball_radius_onl)
 			case "platform_width_ofl" | "platform_width_onl":
-				variants = [*range(5, 21)]
-				widget = action(self.get_situation(variant),
-								self.root.ids.platform_width_ofl, self.root.ids.platform_width_onl)
+				variation = self.MENU_DATA["platform_width"]
+				widget = action(variant, self.root.ids.platform_width_ofl, self.root.ids.platform_width_onl)
 			case "platform_height_ofl" | "platform_height_onl":
-				variants = [*range(40, 201)]
-				widget = action(self.get_situation(variant),
-								self.root.ids.platform_height_ofl, self.root.ids.platform_height_onl)
-			case "ball_boos_ofl" | "ball_boos_onl":
-				variants = [*map(lambda x: f"{x / 10:.1f}", range(10, 21))]
-				widget = action(self.get_situation(variant),
-								self.root.ids.ball_boos_ofl, self.root.ids.ball_boos_onl)
+				variation = self.MENU_DATA["platform_height"]
+				widget = action(variant, self.root.ids.platform_height_ofl, self.root.ids.platform_height_onl)
+			case "ball_boost_ofl" | "ball_boost_onl":
+				variation = self.MENU_DATA["ball_boost"]
+				widget = action(variant, self.root.ids.ball_boost_ofl, self.root.ids.ball_boost_onl)
 			case _:
-				variants = [None]
+				variation = [None]
 				widget = None
-
-		menu_items = [
-			{
-				"text": f"{i}",
-				"on_release": lambda x=f"{i}": self.menu_callback(widget, x),
-			} for i in variants
-		]
-
-		MDDropdownMenu(caller=item, items=menu_items, max_height=300).open()
+		print(variant)
+		MDDropdownMenu(
+			caller=widget,
+			items=[*map(add_item, variation)],
+			border_margin=dp(60),
+			max_height=200,
+			ver_growth="down" if variant in (
+				"bots_can",
+				"users_quantity",
+				"ball_radius_onl",
+				"ball_speed_onl",
+				"ball_radius_ofl",
+				"ball_speed_ofl",
+				"ball_boost_ofl"
+			) else "up"
+		).open()
 
 	def menu_callback(self, widget: Widget, text_item: str) -> None:
 		if widget:
@@ -407,7 +531,16 @@ class DigitalPong(MDApp):
 			case "offline":
 				self.root.current = "offline_room_creation_menu"
 			case "online":
-				self.root.current = "online_room_creation_menu"
+				if not self.DATA['username'] and not self.DATA['password']:
+					self.DIALOG_MANAGER("user_enter_choice")
+				else:
+					self.root.current = "online_room_creation_menu"
+
+	def is_login(self):
+		if self.DATA['username'] and self.DATA['password']:
+			self.DIALOG_MANAGER("user_profile_view", username=self.DATA["username"], identifier=self.DATA["id"])
+		elif not self.DATA['username'] and not self.DATA['password']:
+			self.DIALOG_MANAGER("user_enter_choice")
 
 	# V------DIALOG ACTIONS------V #
 
@@ -416,16 +549,116 @@ class DigitalPong(MDApp):
 		settings = download("settings")
 		settings['situation'] = self.SETTINGS['situation']
 		upload('settings', settings)
-		asynckivy.start(self.set_icon('signal' if self.SETTINGS['situation'] == 'online' else "signal-off"))
+		self.start(self.set_icon, 'signal' if self.SETTINGS['situation'] == 'online' else "signal-off")
 		self.DIALOG_MANAGER("situation_choice")
+		if self.SETTINGS['situation'] == 'online' and not self.DATA['username'] and not self.DATA['password']:
+			self.DIALOG_MANAGER("user_enter_choice")
+
+	async def login(self):
+		try:
+			username, password = self.get_data_from_field("login")
+			response = user_log("in", username=username, password=password)
+			if type(response) is int:
+				self.DIALOG_MANAGER()
+				self.DATA["username"] = username
+				self.DATA["password"] = password
+				self.DATA["id"] = response
+				data = download("data")
+				data['username'] = self.DATA["username"]
+				data['password'] = self.DATA["password"]
+				data['id'] = self.DATA["id"]
+				upload('data', data)
+				self.start(self.set_username, self.DATA["username"])
+				self.DIALOG_MANAGER("user_profile_view", username=self.DATA["username"], identifier=self.DATA["id"])
+			elif type(response) is dict:
+				self.DIALOG_MANAGER("alert", header=f'Проблема - {response["status_code"]}',
+									support_text=f"{response["message"]}")
+		except exceptions.ConnectionError:
+			self.DIALOG_MANAGER("alert", header=f'Проблемы с подключением',
+								support_text="На данный момент сервер отключен. "
+											 "Для устранения проблемы свяжитесь с gamedev`ом, "
+											 "либо подождите, пока сервер не запуститься вновь.")
+		except Exception as error:
+			print(type(error), str(error))
+
+	def get_data_from_field(self, dialog: str):
+		try:
+			text_fields_path = self.DIALOG_MANAGER[dialog].children[0].children[1].children[0].children[0].children
+			for text_field in text_fields_path:
+				match text_field.children[0].text:
+					case "Пароль":
+						password = text_field.text
+					case "Имя пользователя":
+						username = text_field.text
+			return username, password
+		except Exception as error:
+			print(type(error).__name__, str(error))
+
+	async def registration(self):
+		try:
+			username, password = self.get_data_from_field("registration")
+			response_registration = user_registration(username=username, password=password)
+			response_login = user_log('in', username=username, password=password)
+			if not response_registration and type(response_login) is int:
+				self.DIALOG_MANAGER()
+				self.DATA["username"] = username
+				self.DATA["password"] = password
+				self.DATA['id'] = response_login
+				data = download("data")
+				data['username'] = self.DATA["username"]
+				data['password'] = self.DATA["password"]
+				data['id'] = self.DATA["id"]
+				upload('data', data)
+				self.start(self.set_username, self.DATA["username"])
+				self.DIALOG_MANAGER("user_profile_view", username=self.DATA["username"], identifier=self.DATA["id"])
+			elif type(response_registration) is dict:
+				self.DIALOG_MANAGER("alert", header=f'Проблема - {response_registration["status_code"]}',
+									support_text=f"{response_registration["message"]}")
+			elif type(response_login) is dict:
+				self.DIALOG_MANAGER("alert", header=f'Проблема - {response_login["status_code"]}',
+									support_text=f"{response_login["message"]}")
+		except Exception as error:
+			print(type(error).__name__, str(error))
+
+	def exit_for_account(self, forever: bool = False, item: Widget = None):
+		if not forever:
+			response = user_log('out', username=self.DATA["username"], password=self.DATA["password"])
+		else:
+			response = user_delete(username=self.DATA["username"])
+		if not response:
+			self.DATA["username"] = ""
+			self.DATA["password"] = ""
+			self.DATA["id"] = ""
+			data = download("data")
+			data['username'] = self.DATA["username"]
+			data['password'] = self.DATA["password"]
+			data['id'] = self.DATA["id"]
+			upload('data', data)
+			self.start(self.set_username, self.DATA["username"])
+			self.DIALOG_MANAGER()
+		else:
+			self.DIALOG_MANAGER("exit_from_account_warning")
+			self.DIALOG_MANAGER("alert", header=f'Проблема - {response["status_code"]}',
+								support_text=f"{response["message"]}")
 
 	# V------ID ACTIONS------V #
 
 	async def set_username(self, username: str = None) -> None:
-		self.root.ids.user_name = username if username else self.DATA["username"]
+		self.root.ids.user_name.text = username if username else self.DATA["username"]
 
 	async def set_icon(self, icon: str) -> None:
 		self.root.ids.situation_icon.icon = icon
+
+	# V------OTHER ACTIONS------V #
+
+	def start(self, func: Callable, *args, **kwargs):
+		asynckivy.start(func(*args, **kwargs))
+
+	def min_parameter(self, setting_name: str) -> str:
+		return f"{self.MENU_DATA[setting_name][0]}"
+
+	async def open_git(self, link: str) -> None:
+		open(link)
 
 
 if __name__ == "__main__":
@@ -433,4 +666,5 @@ if __name__ == "__main__":
 		app = DigitalPong()
 		app.run()
 	finally:
-		...
+		data = download("data")
+		user_log('out', username=data["username"], password=data["password"])

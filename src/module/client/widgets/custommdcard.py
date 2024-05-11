@@ -9,23 +9,34 @@ class CustomMDCard(HoverBehavior):
 	BG_COLOR_CLICK = (0.796875, 0.78515625, 0.81640625, 0.99609375)  # 204, 201, 209
 
 	def on_enter(self, *args):
+		super().on_enter()
 		self.md_bg_color = self.BG_COLOR_MOTION
 
 	def on_leave(self):
+		super().on_leave()
 		self.md_bg_color = self.BG_COLOR
-
-	def on_touch_down(self, touch):
-		if self.collide_point(*touch.pos):
-			self.md_bg_color = self.BG_COLOR_CLICK
-
-	def on_touch_up(self, touch):
-		if self.collide_point(*touch.pos):
-			self.md_bg_color = self.BG_COLOR_MOTION
 
 
 class MDFloatCard(MDFloatLayout, CustomMDCard):
+	# def on_touch_down(self, touch):
+	# 	super().on_touch_down(touch)
+	# 	if self.collide_point(*touch.pos):
+	# 		self.md_bg_color = self.BG_COLOR_CLICK
+	#
+	# def on_touch_up(self, touch):
+	# 	super().on_touch_up(touch)
+	# 	if self.collide_point(*touch.pos):
+	# 		self.md_bg_color = self.BG_COLOR_MOTION
 	...
 
 
 class MDBoxCard(MDBoxLayout, CustomMDCard):
-	...
+	def on_touch_down(self, touch):
+		super().on_touch_down(touch)
+		if self.collide_point(*touch.pos):
+			self.md_bg_color = self.BG_COLOR_CLICK
+
+	def on_touch_up(self, touch):
+		super().on_touch_up(touch)
+		if self.collide_point(*touch.pos):
+			self.md_bg_color = self.BG_COLOR_MOTION
