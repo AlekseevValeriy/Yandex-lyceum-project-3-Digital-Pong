@@ -1,34 +1,40 @@
 import sys
 from typing import Callable, Any
 from webbrowser import open
+from traceback import extract_tb
 
-from kivymd.uix.slider import MDSlider, MDSliderHandle, MDSliderValueLabel
 from requests import exceptions
-
 import asynckivy
 from kivy.metrics import dp
 from kivymd.app import MDApp
 from kivy.lang.builder import Builder
-from kivy.utils import platform
-from kivy.core.window import Window
-from kivy.config import Config
-from kivy.core.window import Window
 from kivymd.uix.button import MDButton, MDButtonText
 from kivymd.uix.divider import MDDivider
 from kivymd.uix.list import MDListItem, MDListItemLeadingIcon, MDListItemSupportingText, MDListItemTertiaryText, \
-	MDListItemTrailingCheckbox
+	MDListItemTrailingCheckbox, MDListItemLeadingAvatar
 from kivymd.uix.menu import MDDropdownMenu
 from kivy.uix.widget import Widget
-from kivymd.uix.dialog import (MDDialogIcon, MDDialogHeadlineText, MDDialogSupportingText,
-							   MDDialogContentContainer, MDDialogButtonContainer)
+from kivymd.uix.dialog import (MDDialogIcon, MDDialogHeadlineText, MDDialogSupportingText, MDDialogContentContainer,
+							   MDDialogButtonContainer)
 from kivymd.uix.textfield import MDTextField, MDTextFieldHintText, MDTextFieldMaxLengthText, MDTextFieldHelperText
 
 from data_loader import download, upload, download_themes, download_menu
-
-from src.module.client.widgets.custommdcard import MDFloatCard, MDBoxCard
-from src.module.client.widgets.custommddialog import CustomMDDialog
+from src.module.client.widgets.custommdcard import *
+from src.module.client.widgets.custommddialog import *
+from src.module.client.widgets.custommdbutton import *
 from dialog_manager import DialogManager
-from server_requests import user_log, user_registration, user_delete
+from room_user_manager_system import UserManager
+from search_room_manager import SearchRoomManager
+from server_requests import user_log, user_registration, user_delete, testing, room_user_ids, room_user_ids_divine, \
+	room_all, room_enter, room_leave, user_side_change
+
+
+class ResponseException(Exception):
+	...
+
+
+class TheRoomHasBeenDeleted(ResponseException):
+	...
 
 
 class DigitalPong(MDApp):
@@ -42,6 +48,10 @@ class DigitalPong(MDApp):
 	MENU_DATA["ball_boost"] = tuple(map(lambda x: f"{x / 10:.1f}", MENU_DATA["ball_boost"]))
 
 	DIALOG_MANAGER = DialogManager()
+	USER_MANAGER = UserManager()
+	SEARCH_ROOM_MANAGER = SearchRoomManager()
+
+	# /\------DATA------/\ #
 
 	# V------START------V #
 
@@ -51,21 +61,24 @@ class DigitalPong(MDApp):
 
 	def on_start(self):
 		super().on_start()
+		self.USER_MANAGER.post_start_init(self.root.ids.left_users_box, self.root.ids.right_users_box)
+		self.SEARCH_ROOM_MANAGER.post_start_init(self.root.ids.room_container, self.room_enter)
 		self.set_dialogs()
-		self.change_theme_color(plus=False)
-		self.change_theme(self.SETTINGS["current_theme"])
+		asynckivy.start(self.change_theme_color(plus=False))
+		asynckivy.start(self.change_theme(self.SETTINGS["current_theme"]))
+		self.set_state('not_room')
 
 		if self.DATA["username"] and self.DATA["password"]:
-			response = user_log("in", username=self.DATA["username"], password=self.DATA["password"])
-			if type(response) is dict:
-				self.DIALOG_MANAGER("alert", header=f'Проблема - {response["status_code"]}',
-									support_text=f"{response["message"]}")
-			self.start(self.set_username, self.DATA["username"])
+			if self.testing_server_work():
+				asynckivy.start(self.login(just=True))
+			else:
+				asynckivy.start(self.get_error_alert(exceptions.ConnectionError()))
+			asynckivy.start(self.set_username(self.DATA["username"]))
 
 		if not self.SETTINGS['situation']:
 			self.DIALOG_MANAGER("situation_choice")
 		else:
-			self.start(self.set_icon, 'signal' if self.SETTINGS['situation'] == 'online' else "signal-off")
+			asynckivy.start(self.set_icon('signal' if self.SETTINGS['situation'] == 'online' else "signal-off"))
 			if self.SETTINGS['situation'] == 'online' and not self.DATA['username'] and not self.DATA['password']:
 				self.DIALOG_MANAGER("user_enter_choice")
 
@@ -88,7 +101,7 @@ class DigitalPong(MDApp):
 					),
 					theme_bg_color="Custom",
 					md_bg_color=self.theme_cls.transparentColor,
-					on_release=lambda item: self.start(self.choice_state_enter, "offline", item)
+					on_release=lambda item: asynckivy.start(self.choice_state_enter("offline"))
 				),
 				MDDivider(orientation="vertical"),
 				MDListItem(
@@ -100,13 +113,13 @@ class DigitalPong(MDApp):
 					),
 					theme_bg_color="Custom",
 					md_bg_color=self.theme_cls.transparentColor,
-					on_release=lambda item: self.start(self.choice_state_enter, "online", item)
+					on_release=lambda item: asynckivy.start(self.choice_state_enter("online"))
 
 				),
 				MDDivider(orientation="vertical"),
 				orientation="horizontal"
 			),
-			on_dismiss=lambda item: self.DIALOG_MANAGER("situation_choice", only_status=True, item=item)
+			on_dismiss=lambda item: self.DIALOG_MANAGER("situation_choice", only_status=True)
 		)
 		self.DIALOG_MANAGER["user_enter_choice"] = CustomMDDialog(
 			MDDialogHeadlineText(
@@ -126,7 +139,7 @@ class DigitalPong(MDApp):
 					),
 					theme_bg_color="Custom",
 					md_bg_color=self.theme_cls.transparentColor,
-					on_release=lambda item: self.DIALOG_MANAGER("login", item)
+					on_release=lambda item: self.DIALOG_MANAGER("login")
 				),
 				MDListItem(
 					MDListItemLeadingIcon(
@@ -137,7 +150,7 @@ class DigitalPong(MDApp):
 					),
 					theme_bg_color="Custom",
 					md_bg_color=self.theme_cls.transparentColor,
-					on_release=lambda item: self.DIALOG_MANAGER("registration", item)
+					on_release=lambda item: self.DIALOG_MANAGER("registration")
 				),
 				MDDivider(),
 				orientation="vertical"
@@ -184,14 +197,14 @@ class DigitalPong(MDApp):
 						text="УДАЛИТЬ"
 					),
 					style="text",
-					on_release=lambda item: self.DIALOG_MANAGER("delete_account_warning", item)
+					on_release=lambda item: self.DIALOG_MANAGER("delete_account_warning")
 				),
 				MDButton(
 					MDButtonText(
 						text="ВЫЙТИ ИЗ АККАУНТА"
 					),
 					style="text",
-					on_release=lambda item: self.DIALOG_MANAGER("exit_from_account_warning", item)
+					on_release=lambda item: self.DIALOG_MANAGER("exit_from_account_warning")
 				),
 				spacing=dp(8)
 			),
@@ -266,14 +279,14 @@ class DigitalPong(MDApp):
 		self.DIALOG_MANAGER["registration"] = data_input(
 			icon="account-plus",
 			confirm_text="ЗАРЕГЕСТРИРОВАТЬСЯ",
-			back_action=lambda item: self.DIALOG_MANAGER("registration", item),
-			confirm_action=lambda item: self.start(self.registration),
+			back_action=lambda item: self.DIALOG_MANAGER("registration"),
+			confirm_action=lambda item: asynckivy.start(self.registration()),
 			reg=True)
 		self.DIALOG_MANAGER["login"] = data_input(
 			icon="account-badge",
 			confirm_text="ВОЙТИ",
-			back_action=lambda item: self.DIALOG_MANAGER("login", item),
-			confirm_action=lambda item: self.start(self.login),
+			back_action=lambda item: self.DIALOG_MANAGER("login"),
+			confirm_action=lambda item: asynckivy.start(self.login()),
 			reg=False)
 		confirm_alert = lambda **kwargs: CustomMDDialog(
 			MDDialogHeadlineText(
@@ -301,17 +314,17 @@ class DigitalPong(MDApp):
 		self.DIALOG_MANAGER["rename_warning"] = confirm_alert(
 			message="Вы точно желаете сменить имя своего аккаунта?",
 			confirm_action=print,
-			cancel_action=lambda item: self.DIALOG_MANAGER("rename_warning", item)
+			cancel_action=lambda item: self.DIALOG_MANAGER("rename_warning")
 		)
 		self.DIALOG_MANAGER["delete_account_warning"] = confirm_alert(
 			message="Вы точно желаете удалить свой аккаунт навсегда?",
 			confirm_action=lambda item: self.exit_for_account(forever=True, item=item),
-			cancel_action=lambda item: self.DIALOG_MANAGER("delete_account_warning", item)
+			cancel_action=lambda item: self.DIALOG_MANAGER("delete_account_warning")
 		)
 		self.DIALOG_MANAGER["exit_from_account_warning"] = confirm_alert(
 			message="Вы точно желаете выйти из своего аккаунта?",
 			confirm_action=lambda item: self.exit_for_account(forever=False, item=item),
-			cancel_action=lambda item: self.DIALOG_MANAGER("exit_from_account_warning", item)
+			cancel_action=lambda item: self.DIALOG_MANAGER("exit_from_account_warning")
 		)
 		self.DIALOG_MANAGER['rename'] = CustomMDDialog(
 			MDDialogHeadlineText(
@@ -333,12 +346,12 @@ class DigitalPong(MDApp):
 						text="ОТМЕНА"
 					),
 					style="text",
-					# on_release=lambda item: self.dismiss_dialog(item, progenitor=4)
+					# on_release=lambda item: item
 				),
 				MDButton(
 					MDButtonText(text="ПОДТВЕРДИТЬ"),
 					style="text",
-					# on_release=lambda item: self.dismiss_dialog(item, progenitor=4)
+					# on_release=lambda item: item
 				),
 				spacing="8dp"
 			),
@@ -349,6 +362,10 @@ class DigitalPong(MDApp):
 			),
 			MDDialogContentContainer(
 				MDListItem(
+					# MDListItemLeadingAvatar(
+					# 	source="../../../data/image/developer_vua_rera.jpg",
+					# 	size=(60, 60)
+					# ),
 					MDListItemLeadingIcon(
 						icon="dev-to",
 					),
@@ -364,11 +381,11 @@ class DigitalPong(MDApp):
 					),
 					theme_bg_color="Custom",
 					md_bg_color=self.theme_cls.transparentColor,
-					on_release=lambda item: self.start(self.open_git, "https://github.com/AlekseevValeriy")
+					on_release=lambda item: asynckivy.start(self.open_git("https://github.com/AlekseevValeriy"))
 				),
 				MDListItem(
 					MDListItemLeadingIcon(
-						icon="application-edit-outline"
+						icon="application-edit-outline",
 					),
 					MDListItemSupportingText(
 						text="Digital  Pong"
@@ -381,13 +398,13 @@ class DigitalPong(MDApp):
 					),
 					theme_bg_color="Custom",
 					md_bg_color=self.theme_cls.transparentColor,
-					on_release=lambda item: self.start(self.open_git,
-													   "https://github.com/AlekseevValeriy/Yandex-lyceum-project-3-Digital-Pong")
+					on_release=lambda item: asynckivy.start(
+						self.open_git("https://github.com/AlekseevValeriy/Yandex-lyceum-project-3-Digital-Pong"))
 				),
 				MDDivider(orientation="vertical"),
 				orientation="vertical"
 			),
-			on_dismiss=lambda item: self.DIALOG_MANAGER("situation_choice", only_status=True, item=item)
+			on_dismiss=lambda item: self.DIALOG_MANAGER("situation_choice", only_status=True)
 		)
 		self.DIALOG_MANAGER["search_filter"] = CustomMDDialog(
 			MDDialogHeadlineText(
@@ -436,15 +453,17 @@ class DigitalPong(MDApp):
 						text="ИСКАТЬ"
 					),
 					style="text",
-					# on_release=lambda item: self.dismiss_dialog(item, progenitor=4)
+					on_release=lambda item: asynckivy.start(self.filter_search())
 				),
 				Widget()
 			)
 		)
 
+	# /\------START------/\ #
+
 	# V------BUTTONS------V #
 
-	def change_theme_color(self, plus: bool = True, change: bool = True):
+	async def change_theme_color(self, plus: bool = True, change: bool = True):
 		if change:
 			if plus:
 				self.SETTINGS["current_theme_color"] = (self.SETTINGS["current_theme_color"] + 1) % 146
@@ -457,7 +476,7 @@ class DigitalPong(MDApp):
 		else:
 			self.theme_cls.primary_palette = self.THEMES[10]
 
-	def change_theme(self, theme_style: int = None):
+	async def change_theme(self, theme_style: int = None):
 		if theme_style in (0, 1):
 			self.theme_cls.theme_style = "Light" if theme_style == 1 else "Dark"
 		else:
@@ -466,7 +485,7 @@ class DigitalPong(MDApp):
 			settings['current_theme'] = 0 if self.theme_cls.theme_style == "Dark" else 1
 			upload('settings', settings)
 
-	def open_menu(self, variant: str, item: Widget = None) -> None:
+	async def open_menu(self, variant: str, item: Widget = None) -> None:
 		def action(situation: str, offline: Callable, online: Callable) -> Callable:
 			match situation.split('_')[-1]:
 				case "ofl":
@@ -505,7 +524,6 @@ class DigitalPong(MDApp):
 			case _:
 				variation = [None]
 				widget = None
-		print(variant)
 		MDDropdownMenu(
 			caller=widget,
 			items=[*map(add_item, variation)],
@@ -533,6 +551,9 @@ class DigitalPong(MDApp):
 			case "online":
 				if not self.DATA['username'] and not self.DATA['password']:
 					self.DIALOG_MANAGER("user_enter_choice")
+				elif not self.testing_server_work():
+					asynckivy.start(self.get_error_alert(exceptions.ConnectionError()))
+
 				else:
 					self.root.current = "online_room_creation_menu"
 
@@ -542,23 +563,30 @@ class DigitalPong(MDApp):
 		elif not self.DATA['username'] and not self.DATA['password']:
 			self.DIALOG_MANAGER("user_enter_choice")
 
+	# /\------BUTTONS------/\ #
+
 	# V------DIALOG ACTIONS------V #
 
-	async def choice_state_enter(self, situation, *args):
+	async def choice_state_enter(self, situation):
 		self.SETTINGS['situation'] = situation
 		settings = download("settings")
 		settings['situation'] = self.SETTINGS['situation']
 		upload('settings', settings)
-		self.start(self.set_icon, 'signal' if self.SETTINGS['situation'] == 'online' else "signal-off")
+		asynckivy.start(self.set_icon('signal' if self.SETTINGS['situation'] == 'online' else "signal-off"))
 		self.DIALOG_MANAGER("situation_choice")
 		if self.SETTINGS['situation'] == 'online' and not self.DATA['username'] and not self.DATA['password']:
 			self.DIALOG_MANAGER("user_enter_choice")
 
-	async def login(self):
+	async def login(self, just: bool = False):
 		try:
-			username, password = self.get_data_from_field("login")
-			response = user_log("in", username=username, password=password)
-			if type(response) is int:
+			if not just:
+				username, password = self.get_data_from_field("login")
+				response = user_log("in", username=username, password=password)
+			else:
+				response = user_log("in", username=self.DATA["username"], password=self.DATA["password"])
+			if type(response) is dict:
+				raise ResponseException(response)
+			if not just:
 				self.DIALOG_MANAGER()
 				self.DATA["username"] = username
 				self.DATA["password"] = password
@@ -568,31 +596,20 @@ class DigitalPong(MDApp):
 				data['password'] = self.DATA["password"]
 				data['id'] = self.DATA["id"]
 				upload('data', data)
-				self.start(self.set_username, self.DATA["username"])
+				asynckivy.start(self.set_username(self.DATA["username"]))
 				self.DIALOG_MANAGER("user_profile_view", username=self.DATA["username"], identifier=self.DATA["id"])
-			elif type(response) is dict:
-				self.DIALOG_MANAGER("alert", header=f'Проблема - {response["status_code"]}',
-									support_text=f"{response["message"]}")
-		except exceptions.ConnectionError:
-			self.DIALOG_MANAGER("alert", header=f'Проблемы с подключением',
-								support_text="На данный момент сервер отключен. "
-											 "Для устранения проблемы свяжитесь с gamedev`ом, "
-											 "либо подождите, пока сервер не запуститься вновь.")
-		except Exception as error:
-			print(type(error), str(error))
+		except Exception as exception:
+			asynckivy.start(self.get_error_alert(exception))
 
 	def get_data_from_field(self, dialog: str):
-		try:
-			text_fields_path = self.DIALOG_MANAGER[dialog].children[0].children[1].children[0].children[0].children
-			for text_field in text_fields_path:
-				match text_field.children[0].text:
-					case "Пароль":
-						password = text_field.text
-					case "Имя пользователя":
-						username = text_field.text
-			return username, password
-		except Exception as error:
-			print(type(error).__name__, str(error))
+		text_fields_path = self.DIALOG_MANAGER[dialog].children[0].children[1].children[0].children[0].children
+		for text_field in text_fields_path:
+			match text_field.children[0].text:
+				case "Пароль":
+					password = text_field.text
+				case "Имя пользователя":
+					username = text_field.text
+		return username, password
 
 	async def registration(self):
 		try:
@@ -609,37 +626,39 @@ class DigitalPong(MDApp):
 				data['password'] = self.DATA["password"]
 				data['id'] = self.DATA["id"]
 				upload('data', data)
-				self.start(self.set_username, self.DATA["username"])
+				asynckivy.start(self.set_username(self.DATA["username"]))
 				self.DIALOG_MANAGER("user_profile_view", username=self.DATA["username"], identifier=self.DATA["id"])
 			elif type(response_registration) is dict:
-				self.DIALOG_MANAGER("alert", header=f'Проблема - {response_registration["status_code"]}',
-									support_text=f"{response_registration["message"]}")
+				raise ResponseException(response_registration)
 			elif type(response_login) is dict:
-				self.DIALOG_MANAGER("alert", header=f'Проблема - {response_login["status_code"]}',
-									support_text=f"{response_login["message"]}")
-		except Exception as error:
-			print(type(error).__name__, str(error))
+				raise ResponseException(response_login)
+		except Exception as exception:
+			asynckivy.start(self.get_error_alert(exception))
 
 	def exit_for_account(self, forever: bool = False, item: Widget = None):
-		if not forever:
-			response = user_log('out', username=self.DATA["username"], password=self.DATA["password"])
-		else:
-			response = user_delete(username=self.DATA["username"])
-		if not response:
-			self.DATA["username"] = ""
-			self.DATA["password"] = ""
-			self.DATA["id"] = ""
-			data = download("data")
-			data['username'] = self.DATA["username"]
-			data['password'] = self.DATA["password"]
-			data['id'] = self.DATA["id"]
-			upload('data', data)
-			self.start(self.set_username, self.DATA["username"])
-			self.DIALOG_MANAGER()
-		else:
-			self.DIALOG_MANAGER("exit_from_account_warning")
-			self.DIALOG_MANAGER("alert", header=f'Проблема - {response["status_code"]}',
-								support_text=f"{response["message"]}")
+		try:
+			if not forever:
+				response = user_log('out', username=self.DATA["username"], password=self.DATA["password"])
+			else:
+				response = user_delete(username=self.DATA["username"])
+			if not response:
+				self.DATA["username"] = ""
+				self.DATA["password"] = ""
+				self.DATA["id"] = ""
+				data = download("data")
+				data['username'] = self.DATA["username"]
+				data['password'] = self.DATA["password"]
+				data['id'] = self.DATA["id"]
+				upload('data', data)
+				asynckivy.start(self.set_username(self.DATA["username"]))
+				self.DIALOG_MANAGER()
+			else:
+				self.DIALOG_MANAGER("exit_from_account_warning")
+				raise ResponseException(response)
+		except Exception as exception:
+			asynckivy.start(self.get_error_alert(exception))
+
+	# /\------DIALOG ACTIONS------/\ #
 
 	# V------ID ACTIONS------V #
 
@@ -649,10 +668,123 @@ class DigitalPong(MDApp):
 	async def set_icon(self, icon: str) -> None:
 		self.root.ids.situation_icon.icon = icon
 
+	# # V------INTERFACE BLOCKERS------V # #
+
+	def button_translate(self, btn: str) -> MDButton:
+		match btn:
+			case "back":
+				return self.root.ids.room_btn_back
+			case "search":
+				return self.root.ids.room_btn_search
+			case "create":
+				return self.root.ids.room_btn_create
+			case "play":
+				return self.root.ids.room_btn_play
+			case "exit":
+				return self.root.ids.room_btn_exit
+			case "delete":
+				return self.root.ids.room_btn_delete
+
+	async def disable_btn(self, *btns: str) -> None:
+		def disable(btn: MDButton) -> None:
+			btn.disabled = True
+
+		asynckivy.start(self.change_btn(disable, *btns))
+
+	async def enable_btn(self, *btns: str) -> None:
+		def enable(btn: MDButton) -> None:
+			btn.disabled = False
+
+		asynckivy.start(self.change_btn(enable, *btns))
+
+	async def change_btn(self, func: Callable, *btns: str) -> None:
+		tuple(map(func, map(self.button_translate, btns)))
+
+	def set_state(self, state: str):
+		match state:
+			case "create_room":
+				asynckivy.start(self.disable_btn("back", "search", "create", "exit"))
+				asynckivy.start(self.enable_btn("delete", "play"))
+				asynckivy.start(self.set_enter_block('none'))
+				asynckivy.start(self.set_room_settings(False))
+				asynckivy.start(self.set_data_settings('min'))
+			case "enter_room":
+				asynckivy.start(self.disable_btn("back", "search", "create", "delete", "play"))
+				asynckivy.start(self.enable_btn("exit"))
+				asynckivy.start(self.set_enter_block('none'))
+				asynckivy.start(self.set_room_settings(True))
+				asynckivy.start(self.set_data_settings('min'))
+			case "not_room":
+				asynckivy.start(self.disable_btn("delete", "exit", "play"))
+				asynckivy.start(self.enable_btn("back", "search", "create"))
+				asynckivy.start(self.set_enter_block('all'))
+				self.USER_MANAGER.clear()
+				asynckivy.start(self.set_room_settings(True))
+				asynckivy.start(self.set_data_settings('null'))
+
+	@property
+	def room_settings(self) -> list:
+		return [self.root.ids.bots_can_box,
+				self.root.ids.users_quantity_box,
+				self.root.ids.ball_radius_onl_box,
+				self.root.ids.ball_speed_onl_box,
+				self.root.ids.ball_boost_onl_box,
+				self.root.ids.platform_speed_onl_box,
+				self.root.ids.platform_height_onl_box,
+				self.root.ids.platform_width_onl_box]
+
+	async def set_room_settings(self, state: bool):
+		def set_status(item):
+			item.disabled = state
+
+		tuple(map(set_status, self.room_settings))
+
+	async def set_enter_block(self, side):
+		match side:
+			case "left":
+				self.root.ids.room_side_enter_right.disabled = False
+				self.root.ids.room_side_enter_left.disabled = True
+			case 'right':
+				self.root.ids.room_side_enter_right.disabled = True
+				self.root.ids.room_side_enter_left.disabled = False
+			case "all":
+				self.root.ids.room_side_enter_right.disabled = True
+				self.root.ids.room_side_enter_left.disabled = True
+			case "none":
+				self.root.ids.room_side_enter_right.disabled = False
+				self.root.ids.room_side_enter_left.disabled = False
+
+	# # /\------INTERFACE BLOCKER------/\ # #
+
+	async def set_data_settings(self, state: str):
+		def set_null(item):
+			item.children[1].text = ""
+
+		match state:
+			case "null":
+				tuple(map(set_null, self.room_settings))
+			case 'min':
+				self.root.ids.bots_can_box.children[1].text = self.min_parameter("bots_can")
+				self.root.ids.users_quantity_box.children[1].text = self.min_parameter("users_quantity")
+				self.root.ids.ball_radius_onl_box.children[1].text = self.min_parameter("ball_radius")
+				self.root.ids.ball_speed_onl_box.children[1].text = self.min_parameter("ball_speed")
+				self.root.ids.ball_boost_onl_box.children[1].text = self.min_parameter("ball_boost")
+				self.root.ids.platform_speed_onl_box.children[1].text = self.min_parameter("platform_speed")
+				self.root.ids.platform_height_onl_box.children[1].text = self.min_parameter("platform_height")
+				self.root.ids.platform_width_onl_box.children[1].text = self.min_parameter("platform_width")
+
+	# /\------ID ACTIONS------/\ #
+
 	# V------OTHER ACTIONS------V #
 
-	def start(self, func: Callable, *args, **kwargs):
-		asynckivy.start(func(*args, **kwargs))
+	def testing_server_work(self) -> bool:
+		try:
+			testing()
+			return True
+		except exceptions.ConnectionError:
+			return False
+		except Exception:
+			return False
 
 	def min_parameter(self, setting_name: str) -> str:
 		return f"{self.MENU_DATA[setting_name][0]}"
@@ -660,11 +792,132 @@ class DigitalPong(MDApp):
 	async def open_git(self, link: str) -> None:
 		open(link)
 
+	async def get_error_alert(self, exception: Exception):
+		print(type(exception).__name__)
+		match type(exception).__name__:
+			case "ConnectionError":
+				header = 'Проблемы с подключением'
+				support_text = "На данный момент сервер отключен. "
+				"Для устранения проблемы свяжитесь с gamedev`ом, "
+				"либо подождите, пока сервер не запуститься вновь."
+			case "ResponseException":
+				if "status_code" in exception.args[0] and "message" in exception.args[0]:
+					header = f'Проблема - {exception.args[0]["status_code"]}'
+					support_text = f"{exception.args[0]["message"]}"
+				else:
+					header = 'Что - то'
+					support_text = f"{exception} - {exception.args}"
+			case "TheRoomHasBeenDeleted":
+				header = 'Сообщение'
+				support_text = "Комната была удалена хостом комнаты. Вы вышил из комнаты."
+				asynckivy.start(self.exit_from_room())
+			case _:
+				header = f'Ошибка - {type(exception).__name__}'
+				support_text = f"{str(exception)}\n{extract_tb(exception.__traceback__)}"
+
+		self.DIALOG_MANAGER("alert", header=header, support_text=support_text)
+
+	# /\------OTHER ACTIONS------/\ #
+
+	# V------ROOM MANAGER------V #
+
+	async def get_search_result(self):
+		try:
+			response = room_all(is_open=True, names=True, user_limit=0)
+			if "status_code" not in response:
+				asynckivy.start(self.SEARCH_ROOM_MANAGER.set_rooms(response))
+				return response
+			else:
+				raise ResponseException(response)
+		except Exception as exception:
+			self.root.current = "game_start_menu"
+			asynckivy.start(self.get_error_alert(exception))
+
+	async def search_rooms(self):
+		while self.root.current == "room_search_list":
+			asynckivy.start(self.get_search_result())
+			await asynckivy.sleep(5)
+
+	async def filter_search(self):
+		self.DIALOG_MANAGER("search_filter")
+		self.root.current = "room_search_list"
+		asynckivy.start(self.search_rooms())
+
+	async def room_enter(self, room_id: str):
+		try:
+			response = room_enter(int(room_id), int(self.DATA["id"]))
+			if not response:
+				self.root.current = "online_room_creation_menu"
+				self.set_state("enter_room")
+				asynckivy.start(self.enable_btn("exit"))
+				self.DATA['current_room_id'] = room_id
+				asynckivy.start(self.update_current_users())
+			elif type(response) is dict:
+				raise ResponseException(response)
+		except Exception as exception:
+			asynckivy.start(self.get_error_alert(exception))
+
+	async def room_create(self, room_id: str):
+		...
+		self.set_state("create_room")
+		asynckivy.start(self.enable_btn("delete"))
+		self.DATA['current_room_id': str] = room_id
+		asynckivy.start(self.update_current_users())
+		...
+
+	async def update_current_users(self):
+		while self.DATA['current_room_id']:
+			try:
+				asynckivy.start(self.get_users_in_room())
+			except Exception as exception:
+				asynckivy.start(self.get_error_alert(exception))
+				break
+
+			await asynckivy.sleep(2)  # 1 on release
+
+	async def get_users_in_room(self):
+		response = room_user_ids_divine(self.DATA['current_room_id'])
+		if type(response) is int:
+			print(None)
+		elif "status_code" not in response:
+			asynckivy.start(self.USER_MANAGER.set_users(response))
+		elif response['status_code'] == 142:
+			raise TheRoomHasBeenDeleted()
+		else:
+			raise ResponseException(response)
+
+	async def exit_from_room(self):
+		try:
+			response = room_leave(int(self.DATA['id']), 'f')
+			if not response:
+				self.DATA["current_room_id"] = 0
+				self.set_state("not_room")
+			elif type(response) is dict:
+				raise ResponseException(response)
+		except Exception as exception:
+			asynckivy.start(self.get_error_alert(exception))
+
+	async def room_movement(self, side: str) -> None:
+		try:
+			response = user_side_change(self.DATA['id'], side)
+			if not response:
+				asynckivy.start(self.set_enter_block(side))
+			else:
+				raise ResponseException(response)
+		except Exception as exception:
+			asynckivy.start(self.get_error_alert(exception))
+
+# /\------ROOM MANAGER------/\ #
+
 
 if __name__ == "__main__":
 	try:
 		app = DigitalPong()
 		app.run()
 	finally:
-		data = download("data")
-		user_log('out', username=data["username"], password=data["password"])
+		try:
+			data = download("data")
+			user_log('out', username=data["username"], password=data["password"])
+			room_leave(data['id'], 't')
+		except Exception as error:
+			print("finally: ", type(error).__name__, str(error))
