@@ -83,8 +83,12 @@ class UserIsAlreadyInTheRoom(UserException):
 	status_code, message = 133, "Пользователь уже находится в комнате"
 
 
+class UserNotInTheRoom(UserException):
+	status_code, message = 134, "Пользователь не находится в комнате"
+
+
 class UserCanTQuitHisTeam(UserException):
-	status_code, message = 133, "Нельзя покинуть команду если вы хост"
+	status_code, message = 135, "Нельзя покинуть команду если вы хост"
 
 
 class RoomException(ResponseException):
@@ -120,7 +124,7 @@ class RoomPreparationEnd(RoomException):
 
 
 class RoomPreparationContinue(RoomException):
-	status_code, message = 147, "Подготовка к игре в комнате продолжается"
+	status_code, message = 148, "Подготовка к игре в комнате продолжается"
 
 
 class RightsIssue(ResponseException):

@@ -1,5 +1,6 @@
 #:import sys sys
 #:import os os
+#:import asynckivy asynckivy
 
 MDScreenManager:
     md_bg_color: self.theme_cls.backgroundColor
@@ -7,30 +8,21 @@ MDScreenManager:
     MDScreen:
         name: "game_start_menu"
         MDFloatLayout:
-            MDButton:
-                radius: dp(10), dp(10), dp(10), dp(10)
-                style: "elevated"
-                theme_width: "Custom"
+            CustomMDButton:
                 pos_hint: {"x": .05, "top": .95}
-                #width: dp(240)
                 size_hint_x: 0.125
-                on_release: sys.exit(0)
+                on_release:  if not self.disabled:  sys.exit(0)
 
                 MDButtonIcon:
                     icon: "exit-to-app"
 
                 MDButtonText:
                     text: "Выход"
-                    pos_hint: {"center_x": .5, "center_y": .5}
 
-            MDButton:
-                radius: dp(10), dp(10), dp(10), dp(10)
-                style: "elevated"
-                theme_width: "Custom"
-                #width: dp(240)
+            CustomMDButton:
                 size_hint_x: 0.125
                 pos_hint: {"x": .05, "top": .85}
-                on_release: app.create_room()
+                on_release:  if not self.disabled:  app.create_room()
 
                 MDButtonIcon:
                     icon: "location-enter"
@@ -39,13 +31,11 @@ MDScreenManager:
                     text: "Выбрать комнату"
                     pos_hint: {"center_x": .5, "center_y": .5}
 
-            MDButton:
-                radius: dp(10), dp(10), dp(10), dp(10)
-                style: "elevated"
-                theme_width: "Custom"
-                #width: dp(240)
+            CustomMDButton:
                 size_hint_x: 0.125
                 pos_hint: {"x": .05, "top": .75}
+                disabled: True
+                on_release: if not self.disabled: print('ha-ha')
 
                 MDButtonIcon:
                     icon: "domino-mask"
@@ -54,14 +44,10 @@ MDScreenManager:
                     text: "Кастомизация"
                     pos_hint: {"center_x": .5, "center_y": .5}
 
-            MDButton:
-                radius: dp(10), dp(10), dp(10), dp(10)
-                style: "elevated"
-                theme_width: "Custom"
-                #width: dp(240)
+            CustomMDButton:
                 size_hint_x: 0.125
                 pos_hint: {"x": .05, "top": .65}
-                on_release: app.DIALOG_MANAGER("situation_choice")
+                on_release:  if not self.disabled:  app.DIALOG_MANAGER("situation_choice")
 
                 MDButtonIcon:
                     icon: "wrench"
@@ -70,14 +56,10 @@ MDScreenManager:
                     text: "Выбрать режим"
                     pos_hint: {"center_x": .5, "center_y": .5}
 
-            MDButton:
-                radius: dp(10), dp(10), dp(10), dp(10)
-                style: "elevated"
-                theme_width: "Custom"
-                #width: dp(240)
+            CustomMDButton:
                 size_hint_x: 0.125
                 pos_hint: {"x": .05, "top": .55}
-                on_release: app.change_theme_color()
+                on_release:  if not self.disabled:  asynckivy.start(app.change_theme_color())
 
                 MDButtonIcon:
                     icon: "format-color-fill"
@@ -86,14 +68,10 @@ MDScreenManager:
                     text: "Сменить цвет"
                     pos_hint: {"center_x": .5, "center_y": .5}
 
-            MDButton:
-                radius: dp(10), dp(10), dp(10), dp(10)
-                style: "elevated"
-                theme_width: "Custom"
-                #width: dp(240)
+            CustomMDButton:
                 size_hint_x: 0.125
                 pos_hint: {"x": .05, "top": .45}
-                on_release: app.change_theme()
+                on_release:  if not self.disabled:  asynckivy.start(app.change_theme())
 
                 MDButtonIcon:
                     icon: "theme-light-dark"
@@ -102,14 +80,10 @@ MDScreenManager:
                     text: "Сменить тему"
                     pos_hint: {"center_x": .5, "center_y": .5}
 
-            MDButton:
-                radius: dp(10), dp(10), dp(10), dp(10)
-                style: "elevated"
-                theme_width: "Custom"
-                #width: dp(240)
+            CustomMDButton:
                 size_hint_x: 0.125
                 pos_hint: {"x": .05, "top": .35}
-                on_release: app.DIALOG_MANAGER("project_info")
+                on_release:  if not self.disabled:  app.DIALOG_MANAGER("project_info")
 
                 MDButtonIcon:
                     icon: "information"
@@ -152,14 +126,10 @@ MDScreenManager:
     MDScreen:
         name: "offline_room_creation_menu"
         MDFloatLayout:
-            MDButton:
-                radius: dp(10), dp(10), dp(10), dp(10)
-                style: "elevated"
-                theme_width: "Custom"
+            CustomMDButton:
                 pos_hint: {"x": .05, "top": .95}
-                #width: dp(240)
                 size_hint_x: 0.125
-                on_release: app.root.current = "game_start_menu"
+                on_release:  if not self.disabled:  app.root.current = "game_start_menu"
 
                 MDButtonIcon:
                     icon: "arrow-left-bold"
@@ -168,27 +138,23 @@ MDScreenManager:
                     text: "Назад"
                     pos_hint: {"center_x": .5, "center_y": .5}
 
-            MDButton:
-                radius: dp(10), dp(10), dp(10), dp(10)
-                style: "elevated"
-                theme_width: "Custom"
+            CustomMDButton:
                 pos_hint: {"x": .05, "top": .85}
-                #width: dp(240)
                 size_hint_x: 0.125
-                on_release: pass
+                on_release:  if not self.disabled:  pass
 
                 MDButtonIcon:
                     icon: "shape-plus-outline"
 
                 MDButtonText:
-                    text: "Создать"
+                    text: "Играть"
                     pos_hint: {"center_x": .5, "center_y": .5}
 
             MDFloatLayout:
                 md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.40609375)
                 radius: dp(12), dp(12), dp(12), dp(12)
                 pos_hint: {"center_x": .5, "top": .95}
-                size_hint: 0.40, 0.9
+                size_hint: 0.40, 0.95
 
                 Label:
                     text: 'Параметры комнаты'
@@ -205,7 +171,7 @@ MDScreenManager:
                         radius: dp(12), dp(12), dp(12), dp(12)
                         pos_hint: {"center_x": .5, "center_y": 0.90}
                         size_hint: .9, .07
-                        on_touch_down: if self.collide_point(*args[1].pos): app.open_menu("ball_radius_ofl")
+                        on_touch_down: if self.collide_point(*args[1].pos): asynckivy.start(app.open_menu("ball_radius_ofl"))
 
                         Label:
                             text: 'Радиус шара'
@@ -225,7 +191,7 @@ MDScreenManager:
                         radius: dp(12), dp(12), dp(12), dp(12)
                         pos_hint: {"center_x": .5, "center_y": 0.75}
                         size_hint: .9, .07
-                        on_touch_down: if self.collide_point(*args[1].pos): app.open_menu("ball_speed_ofl")
+                        on_touch_down: if self.collide_point(*args[1].pos): asynckivy.start(app.open_menu("ball_speed_ofl"))
 
                         Label:
                             text: 'Скорость шара'
@@ -245,7 +211,7 @@ MDScreenManager:
                         radius: dp(12), dp(12), dp(12), dp(12)
                         pos_hint: {"center_x": .5, "center_y": 0.60}
                         size_hint: .9, .07
-                        on_touch_down: if self.collide_point(*args[1].pos): app.open_menu("ball_boost_ofl")
+                        on_touch_down: if self.collide_point(*args[1].pos): asynckivy.start(app.open_menu("ball_boost_ofl"))
 
                         Label:
                             text: 'Ускорение шара'
@@ -265,7 +231,7 @@ MDScreenManager:
                         radius: dp(12), dp(12), dp(12), dp(12)
                         pos_hint: {"center_x": .5, "center_y": 0.45}
                         size_hint: .9, .07
-                        on_touch_down: if self.collide_point(*args[1].pos): app.open_menu("platform_speed_ofl")
+                        on_touch_down: if self.collide_point(*args[1].pos): asynckivy.start(app.open_menu("platform_speed_ofl"))
 
                         Label:
                             text: 'Скорость платформ'
@@ -285,7 +251,7 @@ MDScreenManager:
                         radius: dp(12), dp(12), dp(12), dp(12)
                         pos_hint: {"center_x": .5, "center_y": 0.30}
                         size_hint: .9, .07
-                        on_touch_down: if self.collide_point(*args[1].pos): app.open_menu("platform_height_ofl")
+                        on_touch_down: if self.collide_point(*args[1].pos): asynckivy.start(app.open_menu("platform_height_ofl"))
 
                         Label:
                             text: 'Высота платформ'
@@ -305,7 +271,7 @@ MDScreenManager:
                         radius: dp(12), dp(12), dp(12), dp(12)
                         pos_hint: {"center_x": .5, "center_y": 0.15}
                         size_hint: .9, .07
-                        on_touch_down: if self.collide_point(*args[1].pos): app.open_menu("platform_width_ofl")
+                        on_touch_down: if self.collide_point(*args[1].pos): asynckivy.start(app.open_menu("platform_width_ofl"))
 
                         Label:
                             text: 'Ширина платформ'
@@ -324,14 +290,11 @@ MDScreenManager:
         name: "online_room_creation_menu"
 
         MDFloatLayout:
-            MDButton:
-                radius: dp(10), dp(10), dp(10), dp(10)
-                style: "elevated"
-                theme_width: "Custom"
+            CustomMDButton:
+                id: room_btn_back
                 pos_hint: {"x": .05, "top": .95}
-                #width: dp(240)
                 size_hint_x: 0.125
-                on_release: app.root.current = "game_start_menu"
+                on_release:  if not self.disabled:  app.root.current = "game_start_menu"
 
                 MDButtonIcon:
                     icon: "arrow-left-bold"
@@ -340,36 +303,71 @@ MDScreenManager:
                     text: "Назад"
                     pos_hint: {"center_x": .5, "center_y": .5}
 
-            MDButton:
-                radius: dp(10), dp(10), dp(10), dp(10)
-                style: "elevated"
-                theme_width: "Custom"
+            CustomMDButton:
+                id: room_btn_search
                 pos_hint: {"x": .05, "top": .85}
-                #width: dp(240)
                 size_hint_x: 0.125
-                on_release: pass
-
-                MDButtonIcon:
-                    icon: "shape-plus-outline"
-
-                MDButtonText:
-                    text: "Создать"
-                    pos_hint: {"center_x": .5, "center_y": .5}
-
-            MDButton:
-                radius: dp(10), dp(10), dp(10), dp(10)
-                style: "elevated"
-                theme_width: "Custom"
-                pos_hint: {"x": .05, "top": .75}
-                #width: dp(240)
-                size_hint_x: 0.125
-                on_release: app.DIALOG_MANAGER("search_filter")
+                on_release:  if not self.disabled:  app.DIALOG_MANAGER("search_filter")
 
                 MDButtonIcon:
                     icon: "magnify"
 
                 MDButtonText:
                     text: "Искать"
+                    pos_hint: {"center_x": .5, "center_y": .5}
+
+            CustomMDButton:
+                id: room_btn_create
+                pos_hint: {"x": .05, "top": .75}
+                size_hint_x: 0.125
+                on_release:  if not self.disabled:  pass
+
+                MDButtonIcon:
+                    icon: "plus"
+
+                MDButtonText:
+                    text: "Создать"
+                    pos_hint: {"center_x": .5, "center_y": .5}
+
+            CustomMDButton:
+                id: room_btn_play
+                pos_hint: {"x": .05, "top": .65}
+                size_hint_x: 0.125
+                on_release:  if not self.disabled:  lambda a: a
+
+                MDButtonIcon:
+                    icon: "shape-plus-outline"
+
+                MDButtonText:
+                    text: "Играть"
+                    pos_hint: {"center_x": .5, "center_y": .5}
+
+
+            CustomMDButton:
+                id: room_btn_exit
+                pos_hint: {"x": .05, "top": .45}
+                size_hint_x: 0.125
+                on_release:  if not self.disabled:  asynckivy.start(app.exit_from_room())
+
+                MDButtonIcon:
+                    icon: "exit-to-app"
+
+                MDButtonText:
+                    text: "Выйти из комнаты"
+                    pos_hint: {"center_x": .5, "center_y": .5}
+
+
+            CustomMDButton:
+                id: room_btn_delete
+                pos_hint: {"x": .05, "top": .35}
+                size_hint_x: 0.125
+                on_release:  if not self.disabled:  pass
+
+                MDButtonIcon:
+                    icon: "delete-outline"
+
+                MDButtonText:
+                    text: "Удалить комнату"
                     pos_hint: {"center_x": .5, "center_y": .5}
 
             MDFloatLayout:
@@ -411,26 +409,54 @@ MDScreenManager:
                                 color: 'black'
                                 pos_hint: {"center_x": .5, "center_y": 0.9}
 
-                            MDFloatLayout:
-                                id: player_position_left_1
-                                md_bg_color: (0.890625, 0.87890625, 0.91015625, 1.0)
-                                radius: dp(12), dp(12), dp(12), dp(12)
-                                size_hint: .9, .17
-                                pos_hint: {"center_x": 0.5, "center_y": 0.7}
+                            MDIconButton:
+                                id: room_side_enter_left
+                                icon: "arrow-bottom-right-bold-box"
+                                pos_hint: {"x": 0.05, "center_y": 0.9}
+                                on_release:  if not self.disabled:  asynckivy.start(app.room_movement('left'))
 
                             MDFloatLayout:
-                                id: player_position_left_2
-                                md_bg_color: (0.890625, 0.87890625, 0.91015625, 1.0)
-                                radius: dp(12), dp(12), dp(12), dp(12)
-                                size_hint: .9, .17
-                                pos_hint: {"center_x": 0.5, "center_y": 0.45}
+                                id: left_users_box
+                                size_hint: 1, 0.8
+                                radius: 0, 0, dp(12), dp(12)
+                                pos_hint: {"x": 0, "y": 0}
 
-                            MDFloatLayout:
-                                id: player_position_left_
-                                md_bg_color: (0.890625, 0.87890625, 0.91015625, 1.0)
-                                radius: dp(12), dp(12), dp(12), dp(12)
-                                size_hint: .9, .17
-                                pos_hint: {"center_x": 0.5, "center_y": 0.2}
+                                MDFloatLayout:
+                                    md_bg_color: (0.890625, 0.87890625, 0.91015625, 0)
+                                    radius: dp(12), dp(12), dp(12), dp(12)
+                                    size_hint: .9, .17
+                                    pos_hint: {"center_x": 0.5, "center_y": 0.8}
+
+                                    Label:
+                                        text: ''
+                                        font_size: 18
+                                        color: 'black'
+                                        pos_hint: {"center_x": .5, "center_y": 0.5}
+
+
+                                MDFloatLayout:
+                                    md_bg_color: (0.890625, 0.87890625, 0.91015625, 0)
+                                    radius: dp(12), dp(12), dp(12), dp(12)
+                                    size_hint: .9, .17
+                                    pos_hint: {"center_x": 0.5, "center_y": 0.5}
+
+                                    Label:
+                                        text: ''
+                                        font_size: 18
+                                        color: 'black'
+                                        pos_hint: {"center_x": .5, "center_y": 0.5}
+
+                                MDFloatLayout:
+                                    md_bg_color: (0.890625, 0.87890625, 0.91015625, 0)
+                                    radius: dp(12), dp(12), dp(12), dp(12)
+                                    size_hint: .9, .17
+                                    pos_hint: {"center_x": 0.5, "center_y": 0.2}
+
+                                    Label:
+                                        text: ''
+                                        font_size: 18
+                                        color: 'black'
+                                        pos_hint: {"center_x": .5, "center_y": 0.5}
 
                         MDFloatLayout:
                             md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.35609375)
@@ -444,26 +470,54 @@ MDScreenManager:
                                 color: 'black'
                                 pos_hint: {"center_x": .5, "center_y": 0.9}
 
-                            MDFloatLayout:
-                                id: player_position_right_1
-                                md_bg_color: (0.890625, 0.87890625, 0.91015625, 1.0)
-                                radius: dp(12), dp(12), dp(12), dp(12)
-                                size_hint: .9, .17
-                                pos_hint: {"center_x": 0.5, "center_y": 0.7}
+                            MDIconButton:
+                                id: room_side_enter_right
+                                icon: "arrow-bottom-right-bold-box"
+                                pos_hint: {"x": 0.05, "center_y": 0.9}
+                                on_release:  if not self.disabled:  asynckivy.start(app.room_movement('right'))
 
                             MDFloatLayout:
-                                id: player_position_right_2
-                                md_bg_color: (0.890625, 0.87890625, 0.91015625, 1.0)
-                                radius: dp(12), dp(12), dp(12), dp(12)
-                                size_hint: .9, .17
-                                pos_hint: {"center_x": 0.5, "center_y": 0.45}
+                                id: right_users_box
+                                radius: 0, 0, dp(12), dp(12)
+                                size_hint: 1, 0.8
+                                pos_hint: {"x": 0, "y": 0}
 
-                            MDFloatLayout:
-                                id: player_position_right_3
-                                md_bg_color: (0.890625, 0.87890625, 0.91015625, 1.0)
-                                radius: dp(12), dp(12), dp(12), dp(12)
-                                size_hint: .9, .17
-                                pos_hint: {"center_x": 0.5, "center_y": 0.2}
+                                MDFloatLayout:
+                                    md_bg_color: (0.890625, 0.87890625, 0.91015625, 0)
+                                    radius: dp(12), dp(12), dp(12), dp(12)
+                                    size_hint: .9, .17
+                                    pos_hint: {"center_x": 0.5, "center_y": 0.8}
+
+                                    Label:
+                                        text: ''
+                                        font_size: 18
+                                        color: 'black'
+                                        pos_hint: {"center_x": .5, "center_y": 0.5}
+
+
+                                MDFloatLayout:
+                                    md_bg_color: (0.890625, 0.87890625, 0.91015625, 0)
+                                    radius: dp(12), dp(12), dp(12), dp(12)
+                                    size_hint: .9, .17
+                                    pos_hint: {"center_x": 0.5, "center_y": 0.5}
+
+                                    Label:
+                                        text: ''
+                                        font_size: 18
+                                        color: 'black'
+                                        pos_hint: {"center_x": .5, "center_y": 0.5}
+
+                                MDFloatLayout:
+                                    md_bg_color: (0.890625, 0.87890625, 0.91015625, 0)
+                                    radius: dp(12), dp(12), dp(12), dp(12)
+                                    size_hint: .9, .17
+                                    pos_hint: {"center_x": 0.5, "center_y": 0.2}
+
+                                    Label:
+                                        text: ''
+                                        font_size: 18
+                                        color: 'black'
+                                        pos_hint: {"center_x": .5, "center_y": 0.5}
 
                         MDFloatLayout:
                             md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.35609375)
@@ -472,11 +526,12 @@ MDScreenManager:
                             pos_hint: {"right": .95, "y": 0}
 
                             MDFloatCard:
+                                id: bots_can_box
                                 md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
                                 radius: dp(12), dp(12), dp(12), dp(12)
                                 pos_hint: {"center_x": .5, "center_y": 0.90}
                                 size_hint: .90, .08
-                                on_touch_down: if self.collide_point(*args[1].pos): app.open_menu("bots_can")
+                                on_touch_down: if self.collide_point(*args[1].pos) and not self.disabled: asynckivy.start(app.open_menu("bots_can"))
 
                                 Label:
                                     id: bots_can
@@ -494,11 +549,12 @@ MDScreenManager:
 
 
                             MDFloatCard:
+                                id: users_quantity_box
                                 md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
                                 radius: dp(12), dp(12), dp(12), dp(12)
                                 pos_hint: {"center_x": .5, "center_y": 0.78}
                                 size_hint: .90, .08
-                                on_touch_down: if self.collide_point(*args[1].pos): app.open_menu("users_quantity")
+                                on_touch_down: if self.collide_point(*args[1].pos) and not self.disabled: asynckivy.start(app.open_menu("users_quantity"))
 
                                 Label:
                                     id: users_quantity
@@ -516,11 +572,12 @@ MDScreenManager:
 
 
                             MDFloatCard:
+                                id: ball_radius_onl_box
                                 md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
                                 radius: dp(12), dp(12), dp(12), dp(12)
                                 pos_hint: {"center_x": .5, "center_y": 0.66}
                                 size_hint: .90, .08
-                                on_touch_down: if self.collide_point(*args[1].pos): app.open_menu("ball_radius_onl")
+                                on_touch_down: if self.collide_point(*args[1].pos) and not self.disabled: asynckivy.start(app.open_menu("ball_radius_onl"))
 
                                 Label:
                                     id: ball_radius_onl
@@ -538,11 +595,12 @@ MDScreenManager:
 
 
                             MDFloatCard:
+                                id: ball_speed_onl_box
                                 md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
                                 radius: dp(12), dp(12), dp(12), dp(12)
                                 pos_hint: {"center_x": .5, "center_y": 0.54}
                                 size_hint: .90, .08
-                                on_touch_down: if self.collide_point(*args[1].pos): app.open_menu("ball_speed_onl")
+                                on_touch_down: if self.collide_point(*args[1].pos) and not self.disabled: asynckivy.start(app.open_menu("ball_speed_onl"))
 
                                 Label:
                                     id: ball_speed_onl
@@ -557,14 +615,13 @@ MDScreenManager:
                                     color: 'black'
                                     pos_hint: {"center_x": 0.2, "center_y": 0.5}
 
-
-
                             MDFloatCard:
+                                id: ball_boost_onl_box
                                 md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
                                 radius: dp(12), dp(12), dp(12), dp(12)
                                 pos_hint: {"center_x": .5, "center_y": 0.42}
                                 size_hint: .90, .08
-                                on_touch_down: if self.collide_point(*args[1].pos): app.open_menu("ball_boost_onl")
+                                on_touch_down: if self.collide_point(*args[1].pos) and not self.disabled: asynckivy.start(app.open_menu("ball_boost_onl"))
 
                                 Label:
                                     id: ball_boost_onl
@@ -579,14 +636,13 @@ MDScreenManager:
                                     color: 'black'
                                     pos_hint: {"center_x": 0.2, "center_y": 0.5}
 
-
-
                             MDFloatCard:
+                                id: platform_speed_onl_box
                                 md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
                                 radius: dp(12), dp(12), dp(12), dp(12)
                                 pos_hint: {"center_x": .5, "center_y": 0.30}
                                 size_hint: .90, .08
-                                on_touch_down: if self.collide_point(*args[1].pos): app.open_menu("platform_speed_onl")
+                                on_touch_down: if self.collide_point(*args[1].pos) and not self.disabled: asynckivy.start(app.open_menu("platform_speed_onl"))
 
                                 Label:
                                     id: platform_speed_onl
@@ -601,14 +657,13 @@ MDScreenManager:
                                     color: 'black'
                                     pos_hint: {"center_x": 0.2, "center_y": 0.5}
 
-
-
                             MDFloatCard:
+                                id: platform_height_onl_box
                                 md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
                                 radius: dp(12), dp(12), dp(12), dp(12)
                                 pos_hint: {"center_x": .5, "center_y": 0.18}
                                 size_hint: .90, .08
-                                on_touch_down: if self.collide_point(*args[1].pos): app.open_menu("platform_height_onl")
+                                on_touch_down: if self.collide_point(*args[1].pos) and not self.disabled: asynckivy.start(app.open_menu("platform_height_onl"))
 
                                 Label:
                                     id: platform_height_onl
@@ -624,11 +679,12 @@ MDScreenManager:
                                     pos_hint: {"center_x": 0.2, "center_y": 0.5}
 
                             MDFloatCard:
+                                id: platform_width_onl_box
                                 md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.99609375)
                                 radius: dp(12), dp(12), dp(12), dp(12)
                                 pos_hint: {"center_x": .5, "center_y": 0.06}
                                 size_hint: .90, .08
-                                on_touch_down: if self.collide_point(*args[1].pos): app.open_menu("platform_width_onl")
+                                on_touch_down: if self.collide_point(*args[1].pos) and not self.disabled: asynckivy.start(app.open_menu("platform_width_onl"))
 
                                 Label:
                                     id: platform_width_onl
@@ -642,3 +698,30 @@ MDScreenManager:
                                     font_size: 16
                                     color: 'black'
                                     pos_hint: {"center_x": 0.2, "center_y": 0.5}
+
+    MDScreen:
+        name: "room_search_list"
+        MDFloatLayout:
+            MDFloatLayout:
+                size_hint: 1, 0.05
+                pos_hint: {"x": 0, "top": 1}
+
+                CustomMDButton:
+                    pos_hint: {"x": .05, "center_y": .5}
+                    size_hint_x: 0.125
+                    on_release:  if not self.disabled:  app.root.current = "online_room_creation_menu"
+
+                    MDButtonIcon:
+                        icon: "arrow-left-bold"
+
+                    MDButtonText:
+                        text: "Назад"
+                        pos_hint: {"center_x": .5, "center_y": .5}
+
+            MDScrollView:
+                size_hint: 1, 0.95
+                pos_hint: {"x": 0, "top": .95}
+                MDList:
+                    id: room_container
+                    padding: [25, 12.5, 25, 100]
+                    spacing: [0, 20]
