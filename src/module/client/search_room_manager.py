@@ -1,4 +1,5 @@
 import asynckivy
+from kivy.metrics import dp
 from kivymd.uix.floatlayout import MDFloatLayout
 from kivymd.uix.list import MDListItem, MDListItemHeadlineText, MDListItemTertiaryText, MDListItemSupportingText
 from kivymd.uix.stacklayout import MDStackLayout
@@ -25,7 +26,8 @@ class SearchRoomManager:
 		return MDListItem(
 			MDListItemHeadlineText(text=room_data[0]),
 			MDListItemSupportingText(text=f"{len(room_data[2])}/{room_data[1]}"),
-			on_release=lambda *args: asynckivy.start(self.choice(room_data[0]))
+			on_release=lambda *args: asynckivy.start(self.choice(room_data[0])),
+			radius=[dp(20), dp(20), dp(20), dp(20)]
 		)
 
 

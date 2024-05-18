@@ -5,6 +5,7 @@ from server_data.user import User
 from server_data.room import Room
 from server_data.token import Token
 from exceptions import *
+from src.module.server.server_data.db_session import SqlAlchemyBase
 from token_work import TokenVerification, TokenCreate
 
 app = Flask(__name__)
@@ -102,31 +103,36 @@ def room_quit(user_id: int, commit: bool = False, get: bool = False) -> User | N
 
 
 # room
-@app.route('/get_rooms/<string:open>/<string:names>/<int:user_limit>', methods=["GET"])
+@app.route('/get_rooms/<string:open>/<string:names>/<int:user_limit>/<string:bots>', methods=["GET"])
 @catch_error
-def get_rooms(open: str = " ", names: str = " ", user_limit: int = 0) -> Response:
+def get_rooms(open: str = "f", names: str = "f", user_limit: int = 0, bots: str = 'f') -> Response:
 	rooms = db_session_app.query(Room)
 
 	# open - игра не начата, можно войти
-	if open not in [" ", 'f'] and open == 't':
-		rooms = rooms.filter(Room.game_run == 0)
+	open_status = 0 if open == 't' else 1
+	rooms = list(filter(lambda room: room.game_run == open_status, rooms))
 
 	if user_limit:
-		rooms = rooms.filter(Room.user_limit == user_limit)
+		rooms = list(filter(lambda room: room.users_quantity == user_limit, rooms))
+
+	bots_status = True if bots == 't' else False
+	rooms = list(filter(lambda room: room.bots == bots_status, rooms))
+
+	def username(user_id: int):
+		return db_session_app.query(User).filter(User.id == user_id).first().username
 
 	# names - получать никнеймы вместо идентификаторов
-	if names not in [" ", "f"] and names == 't':
-		return jsonify(dict(map(lambda robj: (robj.id, (robj.user_limit, tuple(
-			map(lambda uid: db_session_app.query(User).filter(User.id == uid).first().username,
-				robj.user_ids.split(';'))))), rooms)))
-
-	return jsonify(dict(map(lambda robj: (robj.id, (robj.user_limit, robj.user_ids.split(';'))), rooms)))
+	if names == 't':
+		return jsonify(
+			dict(map(lambda room: (room.id, (room.users_quantity, tuple(map(username, room.get_users)))), rooms)))
+	else:
+		return jsonify(dict(map(lambda room: (room.id, (room.users_quantity, room.get_users)), rooms)))
 
 
 @app.route('/search_room/<int:room_id>', methods=["GET"])
 @catch_error
 def search_room(room_id: int) -> Response:
-	return jsonify(bool(db_session_app.query(Room).filter(Room.id == int(room_id)).first()))
+	return jsonify(bool(db_session_app.query(Room).filter(Room.id == room_id).first()))
 
 
 @app.route('/room_users/<int:room_id>', methods=["GET"])
@@ -134,7 +140,11 @@ def search_room(room_id: int) -> Response:
 def get_room_users(room_id: int) -> Response:
 	room = db_session_app.query(Room).filter(Room.id == room_id).first()
 	if not room: raise RoomNotExists
-	return jsonify(room.user_ids.split(';'))
+	return jsonify(room.get_users)
+
+
+def get_divide(room: Room) -> dict[str: list]:
+	return {"left": room.get_divide('left'), "right": room.get_divide('right')}
 
 
 @app.route('/room_users_divide/<int:room_id>', methods=["GET"])
@@ -142,8 +152,7 @@ def get_room_users(room_id: int) -> Response:
 def get_room_users_divide(room_id: int) -> Response:
 	room = db_session_app.query(Room).filter(Room.id == room_id).first()
 	if not room: raise RoomNotExists
-	return jsonify({"left": room.user_divide_left.split(';') if room.user_divide_left else [],
-				   "right": room.user_divide_right.split(';') if room.user_divide_right else []})
+	return jsonify(get_divide(room))
 
 
 @app.route('/user_movement/<int:user_id>/<string:side>', methods=["PUT"])
@@ -156,19 +165,19 @@ def user_movement(user_id: int, side: str) -> Response:
 	room = db_session_app.query(Room).filter(Room.id == user.room_id).first()
 	if not room: raise RoomNotExists
 
-	sides = {'left': room.user_divide_left.split(';') if room.user_divide_left else [],
-			 'right': room.user_divide_right.split(';') if room.user_divide_right else []}
+	sides = get_divide(room)
 
 	sides['left'] = list(filter(lambda a: a != str(user_id), sides['left']))
 	sides['right'] = list(filter(lambda a: a != str(user_id), sides['right']))
 
 	sides[side].append(user_id)
-	room.user_divide_left = ';'.join(map(str, sides['left'])) if sides['left'] else ""
-	room.user_divide_right = ';'.join(map(str, sides['right'])) if sides['right'] else ""
+	room.set_divide('left', sides['left'])
+	room.set_divide('right', sides['right'])
 
 	db_session_app.add(room)
 	db_session_app.commit()
 	return jsonify(0)
+
 
 def user_plus(user_ids: str, user_id: str) -> str:
 	return ';'.join((*user_ids.split(';'), user_id)) if user_ids else user_id
@@ -180,9 +189,12 @@ def user_minus(user_ids: str, user_id: str) -> str:
 	return ';'.join(user_ids)
 
 
-@app.route('/create_room/<int:user_id>/<int:user_limit>', methods=["POST", "PUT", "GET"])
+@app.route(
+	'/create_room/<int:user_id>/<string:bots>/<int:users_quantity>/<int:ball_radius>/<int:ball_speed>/<string:ball_boost>/<int:platform_speed>/<int:platform_height>/<int:platform_width>',
+	methods=["POST", "PUT", "GET"])
 @catch_error
-def create_room(user_id: str, user_limit: str) -> Response:
+def create_room(user_id: str, bots: str, users_quantity: int, ball_radius: int, ball_speed: int, ball_boost: str,
+				platform_speed: int, platform_height: int, platform_width: int) -> Response:
 	user = db_session_app.query(User).filter(User.id == user_id).first()
 	if not user: raise UserNotExists
 	if user.in_room: raise UserIsAlreadyInTheRoom
@@ -190,7 +202,15 @@ def create_room(user_id: str, user_limit: str) -> Response:
 	user.role = 'host'
 	db_session_app.add(user)
 	room = Room()
-	room.user_limit = user_limit
+	room.bots = True if bots == 't' else False
+	room.users_quantity = users_quantity if 0 < users_quantity < 7 else 1
+	room.ball_radius = ball_radius if 0 < ball_radius < 11 else 1
+	room.ball_speed = ball_speed if 0 < ball_speed < 21 else 1
+	room.ball_boost = float(ball_boost) if 9 < float(ball_boost) < 21 else 10
+	room.platform_speed = platform_speed if 0 < platform_speed < 11 else 1
+	room.platform_height = platform_height if 39 < platform_height < 201 else 40
+	room.platform_width = platform_width if 4 < platform_width < 21 else 5
+
 	room.user_ids = user_plus(room.user_ids, str(user_id))
 	db_session_app.add(room)
 	db_session_app.commit()
@@ -226,8 +246,8 @@ def enter_room(room_id: int, user_id: int) -> Response:
 	if not room.user_ids:
 		users = []
 	else:
-		users = room.user_ids.split(';')
-		if len(users) >= room.user_limit: raise RoomUsersLimit
+		users = room.get_users
+		if len(users) >= room.users_quantity: raise RoomUsersLimit
 	user = db_session_app.query(User).filter(User.id == user_id).first()
 	if not user: raise UserNotExists
 
@@ -238,10 +258,10 @@ def enter_room(room_id: int, user_id: int) -> Response:
 	user.room_id = room.id
 	user.role = 'player'
 	db_session_app.add(user)
-	if len(users) == room.user_limit:
+	if len(users) == room.users_quantity:
 		room.game_run = True
 	users = list(map(str, users))
-	room.user_ids = ';'.join(users)
+	room.set_users(users)
 	db_session_app.add(room)
 	db_session_app.commit()
 	return jsonify(0)
@@ -253,12 +273,14 @@ def field_enter(room_id: int, user_id: int) -> Response:
 	room = db_session_app.query(Room).filter(Room.id == room_id).first()
 	if not room: raise RoomNotExists
 	if not room.game_run: raise RoomPreparationContinue
-	users = room.user_ids.split(';') if room.user_ids else []
+	users = room.get_users
 	user = db_session_app.query(User).filter(User.id == user_id).first()
 	if not user: raise UserNotExists
 	if str(user.id) not in users: raise RoomUserMiss
-	room.user_positions = ';'.join(
-		(*room.user_positions.split(';'), f"{user_id}:0")) if room.user_positions else f"{user_id}:0"
+	if room.positions:
+		room.positions = ';'.join((*room.user_positions.split(';'), f"{user_id}:0"))
+	else:
+		room.positions = f"{user_id}:0"
 	db_session_app.add(room)
 	db_session_app.commit()
 	return jsonify(0)
@@ -272,42 +294,44 @@ def leave_room(user_id: int, ignore: str) -> Response:
 	user = db_session_app.query(User).filter(User.id == user_id).first()
 	if not user: raise UserNotExists
 	if not user.room_id: raise UserNotInTheRoom
-	if user.role == 'host': raise UserCanTQuitHisTeam
 	room = db_session_app.query(Room).filter(Room.id == user.room_id).first()
 
 	if ignore:
-		if user.role == 'host':
-			for user_id in room.user_ids.split(';'):
+		if user.host:
+			for user_id in room.get_users:
 				try:
 					db_session_app.add(room_quit(user_id, get=True))
 				except UserNotExists:
 					continue
 			db_session_app.delete(room)
 		else:
-			user_ids = room.user_ids.split(';')
+			user_ids = room.get_users
 			user_ids.remove(str(user_id))
-			left = room.user_divide_left.split(';')
-			if str(user_id) in left:
-				left.remove(str(user_id))
-			right = room.user_divide_right.split(';')
-			if str(user_id) in right:
-				right.remove(str(user_id))
-			room.user_divide_left = ';'.join(left)
-			room.user_divide_right = ';'.join(right)
-			room_quit(user_id)
-			db_session_app.add(user)
 			if not user_ids:
 				db_session_app.delete(room)
 			else:
-				room.user_ids = ';'.join(user_ids)
+				left = room.get_divide('left')
+				if str(user_id) in left:
+					left.remove(str(user_id))
+				right = room.get_divide('right')
+				if str(user_id) in right:
+					right.remove(str(user_id))
+				room.set_divide('left', left)
+				room.set_divide('right', right)
+				room_quit(user_id)
+				db_session_app.add(user)
+				room.set_users(user_ids)
 				room.game_run = False
+				positions = ';'.join(filter(lambda a: a.split(':')[0] != str(user_id), room.positions.split(';')))
+				room.positions = positions
 				db_session_app.add(room)
 	else:
 		if not room: raise RoomNotExists
 		if not room.user_ids: raise RoomUsersMiss
+		if user.host: raise UserCanTQuitHisTeam
 		if room.game_run: raise RoomPreparationEnd
 
-		user_ids = room.user_ids.split(';')
+		user_ids = room.get_users
 		if str(user_id) not in user_ids: raise RoomUserMiss
 		user_ids.remove(str(user_id))
 		room_quit(user_id)
@@ -315,6 +339,7 @@ def leave_room(user_id: int, ignore: str) -> Response:
 		if not user_ids:
 			db_session_app.delete(room)
 		else:
+			room.set_users(user_ids)
 			room.user_ids = ';'.join(user_ids)
 			db_session_app.add(room)
 	db_session_app.commit()
@@ -327,7 +352,7 @@ def can_move(room_id: int) -> Response:
 	room = db_session_app.query(Room).filter(Room.id == room_id).first()
 	if not room: raise RoomNotExists
 	if not room.game_run: raise RoomPreparationContinue
-	if len(room.user_positions.split(';')) != room.user_limit: raise RoomUsersMiss
+	if room.user_positions_quantity != room.users_quantity: raise RoomUsersMiss
 	return jsonify(True)
 
 
@@ -336,9 +361,9 @@ def can_move(room_id: int) -> Response:
 def move(room_id: int, user_id: int, platform_position_y: str) -> Response:
 	room = db_session_app.query(Room).filter(Room.id == room_id).first()
 	if not room: raise RoomNotExists
-	users = dict(map(lambda a: a.split(':'), room.user_positions.split(';')))
+	users = dict(map(lambda a: a.split(':'), room.positions.split(';')))
 	users[str(user_id)] = platform_position_y
-	room.user_positions = ';'.join(map(lambda a: ':'.join((a, users[a])), users))
+	room.positions = ';'.join(map(lambda a: ':'.join((a, users[a])), users))
 	db_session_app.add(room)
 	db_session_app.commit()
 	return jsonify(0)

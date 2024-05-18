@@ -29,12 +29,14 @@ def user_delete(username: str) -> dict[str: str, str: int] | None:
 	return simplification(delete(template(f"delete_user/{username}")).json())
 
 
-def room_all(is_open: bool, names: bool, user_limit: int) -> dict[str: list[int, list[str]]] | dict[str: str, str: int]:
-	return get(template(f"get_rooms/{str(is_open)[0].lower()}/{str(names)[0].lower()}/{user_limit}")).json()
+def room_all(is_open: bool, names: bool, user_limit: int, bots: bool) -> dict[str: list[int, list[str]]] | dict[str: str, str: int]:
+	print(template(f"get_rooms/{str(is_open)[0].lower()}/{str(names)[0].lower()}/{user_limit}/{str(bots)[0].lower()}"))
+	return get(template(f"get_rooms/{str(is_open)[0].lower()}/{str(names)[0].lower()}/{user_limit}/{str(bots)[0].lower()}")).json()
 
 
-def room_create(user_id: int, user_limit: int) -> int | dict[str: str, str: int]:
-	return post(template(f"create_room/{user_id}/{user_limit}")).json()
+def room_create(user_id: str, bots: str, users_quantity: int, ball_radius: int, ball_speed: int, ball_boost: str,
+				platform_speed: int, platform_height: int, platform_width: int) -> int | dict[str: str, str: int]:
+	return post(template(f"/create_room/{user_id}/{bots}/{users_quantity}/{ball_radius}/{ball_speed}/{ball_boost}/{platform_speed}/{platform_height}/{platform_width}")).json()
 
 
 def room_search(room_id: int) -> bool | dict[str: str, str: int]:

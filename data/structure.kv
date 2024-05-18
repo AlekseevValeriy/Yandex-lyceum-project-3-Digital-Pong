@@ -320,7 +320,7 @@ MDScreenManager:
                 id: room_btn_create
                 pos_hint: {"x": .05, "top": .75}
                 size_hint_x: 0.125
-                on_release:  if not self.disabled:  pass
+                on_release:  if not self.disabled: asynckivy.start(app.pre_room_create())
 
                 MDButtonIcon:
                     icon: "plus"
@@ -361,7 +361,7 @@ MDScreenManager:
                 id: room_btn_delete
                 pos_hint: {"x": .05, "top": .35}
                 size_hint_x: 0.125
-                on_release:  if not self.disabled:  pass
+                on_release:  if not self.disabled: asynckivy.start(app.delete_room())
 
                 MDButtonIcon:
                     icon: "delete-outline"
@@ -719,6 +719,8 @@ MDScreenManager:
                         pos_hint: {"center_x": .5, "center_y": .5}
 
             MDScrollView:
+                radius: [dp(10), dp(10), 0, 0]
+                md_bg_color: (0.890625, 0.87890625, 0.91015625, 0.40609375)
                 size_hint: 1, 0.95
                 pos_hint: {"x": 0, "top": .95}
                 MDList:

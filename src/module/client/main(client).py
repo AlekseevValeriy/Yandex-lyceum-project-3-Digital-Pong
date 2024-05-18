@@ -26,7 +26,7 @@ from dialog_manager import DialogManager
 from room_user_manager_system import UserManager
 from search_room_manager import SearchRoomManager
 from server_requests import user_log, user_registration, user_delete, testing, room_user_ids, room_user_ids_divine, \
-	room_all, room_enter, room_leave, user_side_change
+	room_all, room_enter, room_leave, user_side_change, room_search, room_create, room_delete
 
 
 class ResponseException(Exception):
@@ -415,7 +415,11 @@ class DigitalPong(MDApp):
 					MDTextFieldHintText(
 						text="ID комнаты"
 					),
-					mode="outlined"),
+					MDTextFieldHelperText(
+						text="комната не найдена",
+						mode="on_error"),
+					mode="outlined",
+				),
 				MDDivider(),
 				MDTextField(
 					MDTextFieldHintText(
@@ -658,6 +662,16 @@ class DigitalPong(MDApp):
 		except Exception as exception:
 			asynckivy.start(self.get_error_alert(exception))
 
+	async def delete_room(self):
+		try:
+			response = room_delete(self.DATA['current_room_id'])
+			if not response:
+				self.set_state("not_room")
+			else:
+				raise ResponseException(response)
+		except Exception as exception:
+			asynckivy.start(self.get_error_alert(exception))
+
 	# /\------DIALOG ACTIONS------/\ #
 
 	# V------ID ACTIONS------V #
@@ -702,19 +716,24 @@ class DigitalPong(MDApp):
 
 	def set_state(self, state: str):
 		match state:
+			case "pre_create_room":
+				asynckivy.start(self.disable_btn("back", "search", "create", "exit", "delete", "play"))
+				asynckivy.start(self.enable_btn("create"))
+				asynckivy.start(self.set_enter_block('all'))
+				asynckivy.start(self.set_data_settings('min'))
+				asynckivy.start(self.set_room_settings(False))
 			case "create_room":
 				asynckivy.start(self.disable_btn("back", "search", "create", "exit"))
 				asynckivy.start(self.enable_btn("delete", "play"))
 				asynckivy.start(self.set_enter_block('none'))
 				asynckivy.start(self.set_room_settings(False))
-				asynckivy.start(self.set_data_settings('min'))
 			case "enter_room":
 				asynckivy.start(self.disable_btn("back", "search", "create", "delete", "play"))
 				asynckivy.start(self.enable_btn("exit"))
 				asynckivy.start(self.set_enter_block('none'))
 				asynckivy.start(self.set_room_settings(True))
-				asynckivy.start(self.set_data_settings('min'))
 			case "not_room":
+				self.DATA["current_room_id"] = 0
 				asynckivy.start(self.disable_btn("delete", "exit", "play"))
 				asynckivy.start(self.enable_btn("back", "search", "create"))
 				asynckivy.start(self.set_enter_block('all'))
@@ -821,9 +840,9 @@ class DigitalPong(MDApp):
 
 	# V------ROOM MANAGER------V #
 
-	async def get_search_result(self):
+	async def get_search_result(self, users_quantity: int = None, with_bots: bool = None, with_opens: bool = None):
 		try:
-			response = room_all(is_open=True, names=True, user_limit=0)
+			response = room_all(is_open=with_opens, names=True, user_limit=users_quantity, bots=with_bots)
 			if "status_code" not in response:
 				asynckivy.start(self.SEARCH_ROOM_MANAGER.set_rooms(response))
 				return response
@@ -833,15 +852,30 @@ class DigitalPong(MDApp):
 			self.root.current = "game_start_menu"
 			asynckivy.start(self.get_error_alert(exception))
 
-	async def search_rooms(self):
+	async def search_rooms(self, **filters):
+		if filters['users_quantity'].isdigit():
+			filters['users_quantity'] = int(filters['users_quantity'])
+			filters["users_quantity"] = filters['users_quantity'] if 0 < filters['users_quantity'] < 7 else 0
+		else:
+			filters['users_quantity'] = 0
 		while self.root.current == "room_search_list":
-			asynckivy.start(self.get_search_result())
+			asynckivy.start(self.get_search_result(**filters))
 			await asynckivy.sleep(5)
 
 	async def filter_search(self):
+		items = self.DIALOG_MANAGER["search_filter"].children[0].children[1].children[0].children[0].children
+		field_id = items[-1].text
+		field_user_quantity = items[-3].text
+		checkbox_bots = items[-5].children[0].children[0].active
+		checkbox_only_opens = items[-7].children[0].children[0].active
+		print(field_id, field_user_quantity, checkbox_bots, checkbox_only_opens)
 		self.DIALOG_MANAGER("search_filter")
 		self.root.current = "room_search_list"
-		asynckivy.start(self.search_rooms())
+		asynckivy.start(self.search_rooms(
+			users_quantity=field_user_quantity,
+			with_bots=checkbox_bots,
+			with_opens=checkbox_only_opens
+		))
 
 	async def room_enter(self, room_id: str):
 		try:
@@ -857,12 +891,26 @@ class DigitalPong(MDApp):
 		except Exception as exception:
 			asynckivy.start(self.get_error_alert(exception))
 
-	async def room_create(self, room_id: str):
-		...
-		self.set_state("create_room")
-		asynckivy.start(self.enable_btn("delete"))
-		self.DATA['current_room_id': str] = room_id
-		asynckivy.start(self.update_current_users())
+	async def pre_room_create(self):
+		if self.root.ids.bots_can_box.disabled == True:
+			self.DIALOG_MANAGER('alert', header='Инструкция', support_text='Укажите нужные настройки в поле "Параметры комнаты"'
+																		   ' и нажимте на кнопку создания комнаты')
+			self.set_state("pre_create_room")
+		else:
+			asynckivy.start(self.room_create())
+
+	async def room_create(self):
+		try:
+			response = room_create(self.DATA['id'], *map(lambda item: item.children[1].text, self.room_settings))
+
+			if type(response) is int:
+				self.set_state("create_room")
+				self.DATA['current_room_id'] = response
+				asynckivy.start(self.update_current_users())
+			elif type(response) is dict:
+				raise ResponseException(response)
+		except Exception as exception:
+			asynckivy.start(self.get_error_alert(exception))
 		...
 
 	async def update_current_users(self):
