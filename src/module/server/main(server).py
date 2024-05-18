@@ -167,10 +167,16 @@ def user_movement(user_id: int, side: str) -> Response:
 
 	sides = get_divide(room)
 
-	sides['left'] = list(filter(lambda a: a != str(user_id), sides['left']))
-	sides['right'] = list(filter(lambda a: a != str(user_id), sides['right']))
+	print(sides)
+
+	sides['left'] = list(filter(lambda a: a != str(user_id) and a, sides['left']))
+	sides['right'] = list(filter(lambda a: a != str(user_id) and a, sides['right']))
+	print(sides)
 
 	sides[side].append(user_id)
+
+	print(sides)
+
 	room.set_divide('left', sides['left'])
 	room.set_divide('right', sides['right'])
 
