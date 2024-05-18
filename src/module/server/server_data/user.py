@@ -11,3 +11,9 @@ class User(SqlAlchemyBase):
     in_room = Column(Boolean, nullable=False, default=False)
     room_id = Column(Integer, nullable=True)
     role = Column(String, nullable=True)
+
+    @property
+    def host(self) -> bool:
+        if self.role == 'host':
+            return True
+        return False
