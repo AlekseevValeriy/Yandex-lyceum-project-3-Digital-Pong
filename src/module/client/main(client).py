@@ -3,6 +3,7 @@ from typing import Callable, Any
 from webbrowser import open
 from traceback import extract_tb
 
+from screeninfo import get_monitors
 from requests import exceptions
 import asynckivy
 from kivy.metrics import dp
@@ -22,6 +23,7 @@ from data_loader import download, upload, download_themes, download_menu
 from src.module.client.widgets.custommdcard import *
 from src.module.client.widgets.custommddialog import *
 from src.module.client.widgets.custommdbutton import *
+from src.module.client.battle_enviroment import CustomBattleMDFloatLayout
 from dialog_manager import DialogManager
 from room_user_manager_system import UserManager
 from search_room_manager import SearchRoomManager
@@ -571,6 +573,28 @@ class DigitalPong(MDApp):
 
 	# V------DIALOG ACTIONS------V #
 
+	def back(self):
+		self.root.current = "offline_room_creation_menu"
+
+	async def enter_to_battle_filed(self):
+		self.root.current = "battle_field"
+		self.root.ids.battle_field.pre_init(
+			str(self.DATA['id']),
+			'offline',
+			{
+				"ball_radius": self.root.ids.ball_radius_ofl.text,
+				"ball_speed": self.root.ids.ball_speed_ofl.text,
+				"ball_boost": self.root.ids.platform_height_ofl.text,
+				"platform_speed": self.root.ids.platform_speed_ofl.text,
+				"platform_width": self.root.ids.platform_width_ofl.text,
+				"platform_height": self.root.ids.platform_height_ofl.text
+			},
+			lambda: self.back(),
+			self.window_size
+		)
+		self.root.ids.battle_field.enter()
+
+
 	async def choice_state_enter(self, situation):
 		self.SETTINGS['situation'] = situation
 		settings = download("settings")
@@ -893,8 +917,9 @@ class DigitalPong(MDApp):
 
 	async def pre_room_create(self):
 		if self.root.ids.bots_can_box.disabled == True:
-			self.DIALOG_MANAGER('alert', header='Инструкция', support_text='Укажите нужные настройки в поле "Параметры комнаты"'
-																		   ' и нажимте на кнопку создания комнаты')
+			self.DIALOG_MANAGER('alert', header='Инструкция',
+								support_text='Укажите нужные настройки в поле "Параметры комнаты"'
+											 ' и нажимте на кнопку создания комнаты')
 			self.set_state("pre_create_room")
 		else:
 			asynckivy.start(self.room_create())
@@ -955,8 +980,12 @@ class DigitalPong(MDApp):
 		except Exception as exception:
 			asynckivy.start(self.get_error_alert(exception))
 
-# /\------ROOM MANAGER------/\ #
+	@property
+	def window_size(self) -> tuple[int, int]:
+		monitor = tuple(filter(lambda m: m.is_primary, get_monitors()))[0]
+		return monitor.width, monitor.height
 
+# /\------ROOM MANAGER------/\ #
 
 if __name__ == "__main__":
 	try:

@@ -141,7 +141,7 @@ MDScreenManager:
             CustomMDButton:
                 pos_hint: {"x": .05, "top": .85}
                 size_hint_x: 0.125
-                on_release:  if not self.disabled:  pass
+                on_release:  if not self.disabled:  asynckivy.start(app.enter_to_battle_filed())
 
                 MDButtonIcon:
                     icon: "shape-plus-outline"
@@ -727,3 +727,15 @@ MDScreenManager:
                     id: room_container
                     padding: [25, 12.5, 25, 100]
                     spacing: [0, 20]
+
+    MDScreen:
+        name: "battle_field"
+
+        MDIconButton:
+            pos_hint: {"center_x": 0.5, "top": 0.98}
+            icon: "exit-to-app"
+            on_release: app.root.current = "offline_room_creation_menu"
+
+        CustomBattleMDFloatLayout:
+            id: battle_field
+
