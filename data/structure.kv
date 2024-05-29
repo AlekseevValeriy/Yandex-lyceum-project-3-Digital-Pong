@@ -734,7 +734,7 @@ MDScreenManager:
         MDIconButton:
             pos_hint: {"center_x": 0.5, "top": 0.98}
             icon: "exit-to-app"
-            on_release: app.root.current = "offline_room_creation_menu"
+            on_release: app.back()
 
         CustomBattleMDFloatLayout:
             id: battle_field

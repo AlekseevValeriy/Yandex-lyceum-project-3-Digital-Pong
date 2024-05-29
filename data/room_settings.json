@@ -16,7 +16,7 @@
   "platform_speed": {
     "interval": true,
     "data": [
-      1,
+      5,
       11
     ]
   },
@@ -30,8 +30,8 @@
   "ball_radius": {
     "interval": true,
     "data": [
-      1,
-      11
+      5,
+      31
     ]
   },
   "platform_width": {
@@ -44,7 +44,7 @@
   "platform_height": {
     "interval": true,
     "data": [
-      40,
+      100,
       201
     ]
   },

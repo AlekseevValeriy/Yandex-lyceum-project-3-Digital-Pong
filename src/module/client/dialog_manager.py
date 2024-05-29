@@ -61,4 +61,3 @@ class DialogManager:
 
 if __name__ == '__main__':
 	a = DialogManager()
-	print(a)
