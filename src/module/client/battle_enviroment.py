@@ -1,5 +1,6 @@
 from typing import Callable
 from dataclasses import dataclass
+from random import randint
 
 import asynckivy
 from kivymd.uix.floatlayout import MDFloatLayout
@@ -109,7 +110,7 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 	def window_y(self) -> int:
 		return self.window_size[1]
 
-	def enter(self):
+	async def enter(self):
 		"""
 		Используется после перехода на этот макет. Выбрав режим, выполняет необходимые действия\n
 		- при режиме `offline`, задаёт заранее записанные виджеты;
@@ -118,9 +119,16 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 		self.clear_widgets()
 		match self.mode:
 			case "offline":
-				self.offline_create_object()
+				asynckivy.start(self.offline_create_object())
 			case "online":
 				...
+
+	async def exit(self):
+		if self.children:
+			self.clear_widgets()
+		if self.children_d:
+			self.children_d = {}
+		self.game_process = False
 
 	def create_object(self, *data: tuple[str, str, bool] | tuple[str]) -> None:
 		"""
@@ -133,7 +141,7 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 			else:
 				self.add_widget(self.platform_template(name=element[0], side=element[1], auto=element[2]))
 
-	def offline_create_object(self):
+	async def offline_create_object(self):
 		self.create_object(("b_1"), (self.my_name, "left", False), ("enemy", "right", True))
 		self.set_positions()
 		asynckivy.start(self.start_game())
@@ -148,6 +156,7 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 		self.game_process = True
 		match self.mode:
 			case "offline":
+				self.children_d['b_1'].set_random_vector_x()
 				asynckivy.start(self.offline_game_process())
 			case "online":
 				asynckivy.start(self.online_game_process())
@@ -155,19 +164,18 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 	async def offline_game_process(self):
 		while self.game_process:
 			def widget_action(widget: GameObject) -> None:
-				print(widget.pos)
 				match widget.type:
 					case "platform":
-						match widget.auto:
-							case False:
-								widget.move(self.touch.y)
-							case True:
-								widget.move(self.children_d["b_1"].center_y)
+						if self.touch.can:
+							match widget.auto:
+								case False:
+									widget.move(self.touch.y)
+								case True:
+									widget.move(self.children_d["b_1"].center_y)
 					case "ball":
-						widget.move()
+						widget.move(self.children)
 
 			tuple(map(widget_action, self.children))
-			print('work')
 			await asynckivy.sleep(1 / 60)
 
 	async def online_game_process(self):
@@ -211,7 +219,9 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 	def ball_template(self, name: str = "") -> Widget:
 		return Ball(
 			name=name,
-			# radius=self.widgets_data["ball_radius"],
+			width=int(self.widgets_data["ball_radius"]) * 2,
+			height=int(self.widgets_data["ball_radius"]) * 2,
+			radius=[int(self.widgets_data["ball_radius"])] * 4,
 			speed=self.widgets_data["ball_speed"],
 			boost=self.widgets_data["ball_boost"]
 		)
@@ -237,8 +247,8 @@ class GameObject(MDWidget, SizeConvertor):
 	color = StringProperty('0;0;0;0')
 
 	def set_color(self):
-		# self.md_bg_color = list(map(float, self.color.split(';')))
-		self.md_bg_color = 'black'
+		self.md_bg_color = list(map(float, self.color.split(';')))
+
 	def move(self) -> None:
 		...
 
@@ -267,14 +277,66 @@ class Ball(GameObject):
 	type = StringProperty("ball")
 	name = StringProperty("b_")
 	side = StringProperty("center")
-	# radius = NumericProperty(0)
 	speed = NumericProperty(0)
 	boost = NumericProperty(0)
 	color = StringProperty("0.5;0.5;0.5;1")
 
+	vector_x = NumericProperty(0)
+	vector_y = NumericProperty(0)
+
 	@property
 	def float_boost(self) -> float:
 		return self.boost / 10
+
+	def collision(self, widgets: list[Widget]) -> None:
+		def manipulation(widget: Widget) -> None:
+			match widget.type:
+				case 'platform':
+					if widget.collide_point(self.center_x, self.center_y):
+						self.redirection(widget)
+					else:
+						closest_x = max(widget.x, min(self.center_x, widget.right))
+						closest_y = max(widget.top, min(self.center_y, widget.y))
+
+						distance = ((self.center_x - closest_x)**2 + (self.center_y - closest_y)**2)**0.5
+						if distance <= (self.width / 2):
+							self.redirection(widget)
+
+				case _:
+					...
+		if self.top > self.pos_confines_y[1]:
+			self.y = self.pos_confines_y[1] - self.height
+			self.vector_y = self.vector_y * -1
+		elif self.y < 0:
+			self.y = self.height
+			self.vector_y = self.vector_y * -1
+		if self.x < 0:
+			self.x = 0
+			self.vector_x = self.vector_x * -1
+		if self.right > self.pos_confines_x[1]:
+			self.x = self.pos_confines_x[1] - self.width
+			self.vector_x = self.vector_x * -1
+
+		tuple(map(manipulation, widgets))
+
+	def redirection(self, widget: Widget):
+		if self.y <= widget.center_y <= self.top:
+			self.vector_x = self.vector_x * -1
+		else:
+			self.vector_y = (self.vector_y / abs(self.vector_y) if self.vector_y else 1) * (abs(self.vector_y) + 10)
+			self.vector_y = self.vector_y * -1
+
+	def move(self, widgets) -> None:
+		self.y += self.vector_y
+		self.x += self.vector_x
+		self.collision(widgets)
+
+	def set_random_vector_x(self):
+		if randint(0, 1):
+			self.vector_x = self.speed
+		else:
+			self.vector_x = -self.speed
+		print(self.vector_x, self.speed)
 
 
 class Platform(GameObject):
@@ -293,11 +355,16 @@ class Platform(GameObject):
 	def collision(self) -> None:
 		if self.top > self.pos_confines_y[1]:
 			self.y = self.pos_confines_y[1] - self.height
-		elif self.y < self.pos_confines_y[0]:
-			self.y = 0
+		elif (self.y - self.half_height) < 0:
+			self.y = self.half_height
 
 	def move(self, center_y: int | float) -> None:
-		self.y = center_y - self.half_height
+		new_y = center_y - self.half_height
+		difference = new_y - self.y
+
+		if abs(difference) > self.speed:
+			self.y += self.speed * difference / abs(difference)
+
 		self.collision()
 
 	# def set_color(self):

@@ -15,7 +15,6 @@ class UserManager:
 	async def set_users(self, users: dict[str: tuple[str]]) -> None:
 		for side in users:
 			if users[side]:
-				print(*zip(self.template(users[side]), self.translate[side]))
 				for user, child in zip(self.template(users[side]), self.translate[side]):
 					if user != self.get_text(child):
 						self.set_text(child, user)

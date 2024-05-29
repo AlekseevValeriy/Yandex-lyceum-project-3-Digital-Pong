@@ -575,6 +575,7 @@ class DigitalPong(MDApp):
 
 	def back(self):
 		self.root.current = "offline_room_creation_menu"
+		asynckivy.start(self.root.ids.battle_field.exit())
 
 	async def enter_to_battle_filed(self):
 		self.root.current = "battle_field"
@@ -592,8 +593,7 @@ class DigitalPong(MDApp):
 			lambda: self.back(),
 			self.window_size
 		)
-		self.root.ids.battle_field.enter()
-
+		asynckivy.start(self.root.ids.battle_field.enter())
 
 	async def choice_state_enter(self, situation):
 		self.SETTINGS['situation'] = situation
@@ -892,7 +892,6 @@ class DigitalPong(MDApp):
 		field_user_quantity = items[-3].text
 		checkbox_bots = items[-5].children[0].children[0].active
 		checkbox_only_opens = items[-7].children[0].children[0].active
-		print(field_id, field_user_quantity, checkbox_bots, checkbox_only_opens)
 		self.DIALOG_MANAGER("search_filter")
 		self.root.current = "room_search_list"
 		asynckivy.start(self.search_rooms(
@@ -951,7 +950,7 @@ class DigitalPong(MDApp):
 	async def get_users_in_room(self):
 		response = room_user_ids_divine(self.DATA['current_room_id'])
 		if type(response) is int:
-			print(None)
+			pass
 		elif "status_code" not in response:
 			asynckivy.start(self.USER_MANAGER.set_users(response))
 		elif response['status_code'] == 142:

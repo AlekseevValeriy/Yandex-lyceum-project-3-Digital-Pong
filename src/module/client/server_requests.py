@@ -30,7 +30,6 @@ def user_delete(username: str) -> dict[str: str, str: int] | None:
 
 
 def room_all(is_open: bool, names: bool, user_limit: int, bots: bool) -> dict[str: list[int, list[str]]] | dict[str: str, str: int]:
-	print(template(f"get_rooms/{str(is_open)[0].lower()}/{str(names)[0].lower()}/{user_limit}/{str(bots)[0].lower()}"))
 	return get(template(f"get_rooms/{str(is_open)[0].lower()}/{str(names)[0].lower()}/{user_limit}/{str(bots)[0].lower()}")).json()
 
 
