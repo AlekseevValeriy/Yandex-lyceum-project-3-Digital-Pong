@@ -26,6 +26,12 @@ class DialogManager:
 										self.dialogs[name].children[0].children[1].children[0].children[0].children[3].children[1].children[0].children[0].text = kwargs[tag]
 									case "identifier":
 										self.dialogs[name].children[0].children[1].children[0].children[0].children[1].children[1].children[0].children[0].text = str(kwargs[tag])
+									case "side":
+										self.dialogs[name].children[0].children[1].children[2].children[0].text = kwargs[tag]
+									case "score_right":
+										self.dialogs[name].children[0].children[1].children[0].children[0].children[0].children[1].children[0].children[0].text = kwargs[tag]
+									case "score_left":
+										self.dialogs[name].children[0].children[1].children[0].children[0].children[1].children[1].children[0].children[0].text = kwargs[tag]
 							except Exception as error:
 								print(type(error).__name__, str(error))
 						self.dialogs[name].open()
