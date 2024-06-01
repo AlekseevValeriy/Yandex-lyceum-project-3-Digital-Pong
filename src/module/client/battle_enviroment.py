@@ -3,11 +3,19 @@ from dataclasses import dataclass
 from random import randint
 
 import asynckivy
+from kivy.metrics import dp
+from kivymd.uix.button import MDButton, MDButtonText
+from kivymd.uix.dialog import MDDialog, MDDialogHeadlineText, MDDialogContentContainer, MDDialogButtonContainer
+from kivymd.uix.divider import MDDivider
 from kivymd.uix.floatlayout import MDFloatLayout
 from kivy.uix.widget import Widget
+from kivymd.uix.list import MDListItem, MDListItemSupportingText, MDListItemTrailingCheckbox, MDListItemLeadingIcon, \
+	MDListItemHeadlineText, MDListItemTertiaryText
+from kivymd.uix.textfield import MDTextField, MDTextFieldHintText, MDTextFieldHelperText
 from kivymd.uix.widget import MDWidget
 from kivy.properties import StringProperty, NumericProperty, BooleanProperty
 from kivy.graphics import Color
+from pymorphy2 import MorphAnalyzer
 
 
 @dataclass
@@ -77,9 +85,11 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 		self.widgets_data: dict | None = {}
 		self.exit_action: Callable | None = None
 		self.window_size: list[int, int] | None = None
-		self.children_d = {}
-		self.touch = Touch()
-		self.game_process = False
+		self.children_d: dict = {}
+		self.touch: Touch = Touch()
+		self.game_process: bool = False
+		self.counter_action: Callable | None = None
+		self.dialog: Callable | None = None
 
 	def on_touch_down(self, touch):
 		super().on_touch_down(touch)
@@ -92,7 +102,8 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 		super().on_touch_move(touch)
 		self.touch(touch)
 
-	def pre_init(self, my_name: str, mode: str, widgets_data: dict, exit_action: Callable, window_size: tuple[int, int]) -> None:
+	def pre_init(self, my_name: str, mode: str, widgets_data: dict, exit_action: Callable, window_size: tuple[int, int],
+				 counter_action: Callable, dialog: Callable) -> None:
 		"""
 		Используется перед `enter()` для постановки всех данный нужных коду - `mode`, `widgets_data`
 		"""
@@ -101,6 +112,8 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 		self.widgets_data = widgets_data
 		self.exit_action = exit_action
 		self.window_size = window_size
+		self.counter_action = counter_action
+		self.dialog = dialog
 
 	@property
 	def window_x(self) -> int:
@@ -129,6 +142,11 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 		if self.children_d:
 			self.children_d = {}
 		self.game_process = False
+
+	async def end_exit(self):
+		asynckivy.start(self.exit())
+		self.dialog('battle_statistic')
+
 
 	def create_object(self, *data: tuple[str, str, bool] | tuple[str]) -> None:
 		"""
@@ -166,12 +184,10 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 			def widget_action(widget: GameObject) -> None:
 				match widget.type:
 					case "platform":
-						if self.touch.can:
-							match widget.auto:
-								case False:
-									widget.move(self.touch.y)
-								case True:
-									widget.move(self.children_d["b_1"].center_y)
+						if widget.auto:
+							widget.move(self.children_d["b_1"].center_y)
+						elif self.touch.can:
+							widget.move(self.touch.y)
 					case "ball":
 						widget.move(self.children)
 
@@ -183,6 +199,8 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 		await asynckivy.sleep(1 / 60)
 
 	def set_positions(self):
+		self.counter_action("update")
+
 		balls = []
 		left_platforms = []
 		right_platforms = []
@@ -218,6 +236,7 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 
 	def ball_template(self, name: str = "") -> Widget:
 		return Ball(
+			self.defeat,
 			name=name,
 			width=int(self.widgets_data["ball_radius"]) * 2,
 			height=int(self.widgets_data["ball_radius"]) * 2,
@@ -235,6 +254,54 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 			width=self.widgets_data["platform_width"],
 			height=self.widgets_data["platform_height"]
 		)
+
+	def defeat(self, side: str) -> None:
+		def reset_ball(widget: GameObject) -> None:
+			if widget.type == 'ball':
+				widget.reset()
+				widget.set_center_y(self.window_y / 2)
+				widget.set_center_x(self.window_x / 2)
+				widget.set_random_vector_x()
+
+		def stop_ball(widget: GameObject) -> None:
+			if widget.type == 'ball':
+				widget.stop()
+
+		match side:
+			case "left":
+				self.counter_action('plus_right')
+			case "right":
+				self.counter_action('plus_left')
+
+		points = self.counter_action('get')
+		tuple(map(reset_ball, self.children))
+		if points['left'] >= 5:
+			# left win
+			tuple(map(stop_ball, self.children))
+			asynckivy.start(self.end_dialog("left"))
+			...
+		elif points['right'] >= 5:
+			# right win
+			tuple(map(stop_ball, self.children))
+			asynckivy.start(self.end_dialog("right"))
+			...
+
+	def right_word(self, quantity: int) -> str:
+		if (11 <= quantity % 100 <= 14) or (quantity % 10 in [0, 5, 6, 7, 8, 9]):
+			return 'шаров'
+		elif quantity % 10 in [2, 3, 4]:
+			return 'шара'
+		return 'шар'
+
+	async def end_dialog(self, side):
+		side = {'left': 'левая', 'right': 'правая'}[side]
+		self.dialog(
+			"battle_statistic",
+			side=f"Победила {side} сторона",
+			score_left=f"Забила {self.counter_action('get')['left']} {self.right_word(int(self.counter_action('get')['left']))}",
+			score_right=f"Забила {self.counter_action('get')['right']} {self.right_word(int(self.counter_action('get')['right']))}"
+		)
+
 
 
 class GameObject(MDWidget, SizeConvertor):
@@ -284,26 +351,24 @@ class Ball(GameObject):
 	vector_x = NumericProperty(0)
 	vector_y = NumericProperty(0)
 
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		self.counter_action = args[0]
+
+	def stop(self):
+		self.vector_x = 0
+		self.vector_y = 0
+
+
 	@property
 	def float_boost(self) -> float:
 		return self.boost / 10
 
 	def collision(self, widgets: list[Widget]) -> None:
 		def manipulation(widget: Widget) -> None:
-			match widget.type:
-				case 'platform':
-					if widget.collide_point(self.center_x, self.center_y):
-						self.redirection(widget)
-					else:
-						closest_x = max(widget.x, min(self.center_x, widget.right))
-						closest_y = max(widget.top, min(self.center_y, widget.y))
+			if self != widget and self.collide_widget(widget):
+				self.redirection(widget)
 
-						distance = ((self.center_x - closest_x)**2 + (self.center_y - closest_y)**2)**0.5
-						if distance <= (self.width / 2):
-							self.redirection(widget)
-
-				case _:
-					...
 		if self.top > self.pos_confines_y[1]:
 			self.y = self.pos_confines_y[1] - self.height
 			self.vector_y = self.vector_y * -1
@@ -311,22 +376,39 @@ class Ball(GameObject):
 			self.y = self.height
 			self.vector_y = self.vector_y * -1
 		if self.x < 0:
-			self.x = 0
-			self.vector_x = self.vector_x * -1
+			# self.x = 0
+			# self.vector_x = self.vector_x * -1
+			self.counter_action('left')
+
 		if self.right > self.pos_confines_x[1]:
-			self.x = self.pos_confines_x[1] - self.width
-			self.vector_x = self.vector_x * -1
+			# self.x = self.pos_confines_x[1] - self.width
+			# self.vector_x = self.vector_x * -1
+			self.counter_action('right')
 
 		tuple(map(manipulation, widgets))
 
 	def redirection(self, widget: Widget):
-		if self.y <= widget.center_y <= self.top:
+		if widget.y <= self.center_y <= widget.top:
 			self.vector_x = self.vector_x * -1
+
+			if self.center_x > widget.center_x:
+				self.x = widget.right
+			else:
+				self.x = widget.x - self.width
+
+			self.vector_y += (self.center_y - widget.y - (widget.height / 2)) * self.speed / (widget.height / 2)
+			if self.vector_y > (self.speed * 5):
+				self.vector_y = self.speed * 5
 		else:
 			self.vector_y = (self.vector_y / abs(self.vector_y) if self.vector_y else 1) * (abs(self.vector_y) + 10)
 			self.vector_y = self.vector_y * -1
 
-	def move(self, widgets) -> None:
+			if self.center_y > widget.center_y:
+				self.y = widget.top + 1
+			else:
+				self.y = widget.y - self.height - 1
+
+	def move(self, widgets: list[Widget]) -> None:
 		self.y += self.vector_y
 		self.x += self.vector_x
 		self.collision(widgets)
@@ -336,7 +418,9 @@ class Ball(GameObject):
 			self.vector_x = self.speed
 		else:
 			self.vector_x = -self.speed
-		print(self.vector_x, self.speed)
+
+	def reset(self):
+		self.vector_y, self.vector_x = 0, 0
 
 
 class Platform(GameObject):
@@ -366,9 +450,3 @@ class Platform(GameObject):
 			self.y += self.speed * difference / abs(difference)
 
 		self.collision()
-
-	# def set_color(self):
-	# 	self.canvas.before.clear() # clear the old color
-	# 	self.canvas.before.add(Color(*map(float, self.color.split(';')))) # add the new color
-	# 	print(self.width, self.height, self.pos)
-	# 	self.canvas.before.add(Widget(width=self.width, height=self.height, pos=self.pos)) # redraw the widget

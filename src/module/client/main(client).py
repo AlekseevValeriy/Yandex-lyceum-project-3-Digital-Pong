@@ -12,7 +12,7 @@ from kivy.lang.builder import Builder
 from kivymd.uix.button import MDButton, MDButtonText
 from kivymd.uix.divider import MDDivider
 from kivymd.uix.list import MDListItem, MDListItemLeadingIcon, MDListItemSupportingText, MDListItemTertiaryText, \
-	MDListItemTrailingCheckbox, MDListItemLeadingAvatar
+	MDListItemTrailingCheckbox, MDListItemLeadingAvatar, MDListItemHeadlineText
 from kivymd.uix.menu import MDDropdownMenu
 from kivy.uix.widget import Widget
 from kivymd.uix.dialog import (MDDialogIcon, MDDialogHeadlineText, MDDialogSupportingText, MDDialogContentContainer,
@@ -464,6 +464,51 @@ class DigitalPong(MDApp):
 				Widget()
 			)
 		)
+		self.DIALOG_MANAGER["battle_statistic"] = CustomMDDialog(
+			MDDialogHeadlineText(
+				text=" "
+			),
+			MDDialogContentContainer(
+				MDListItem(
+					MDListItemLeadingIcon(
+						icon="border-left-variant"
+					),
+					MDListItemHeadlineText(
+						text="Левая сторона"
+					),
+					MDListItemSupportingText(
+						text=" "
+					),
+					theme_bg_color="Custom",
+					md_bg_color=self.theme_cls.transparentColor
+				),
+				MDListItem(
+					MDListItemLeadingIcon(
+						icon="border-right-variant"
+					),
+					MDListItemHeadlineText(
+						text="Правая сторона"
+					),
+					MDListItemSupportingText(
+						text=" "
+					),
+					theme_bg_color="Custom",
+					md_bg_color=self.theme_cls.transparentColor
+				),
+				orientation='vertical'
+			),
+			MDDialogButtonContainer(
+				Widget(),
+				MDButton(
+					MDButtonText(
+						text="ВЫЙТИ"
+					),
+					style="text",
+					on_release=lambda item: self.end_back()
+				),
+				Widget()
+			)
+		)
 
 	# /\------START------/\ #
 
@@ -577,6 +622,10 @@ class DigitalPong(MDApp):
 		self.root.current = "offline_room_creation_menu"
 		asynckivy.start(self.root.ids.battle_field.exit())
 
+	def end_back(self):
+		self.root.current = "offline_room_creation_menu"
+		asynckivy.start(self.root.ids.battle_field.end_exit())
+
 	async def enter_to_battle_filed(self):
 		self.root.current = "battle_field"
 		self.root.ids.battle_field.pre_init(
@@ -590,8 +639,10 @@ class DigitalPong(MDApp):
 				"platform_width": self.root.ids.platform_width_ofl.text,
 				"platform_height": self.root.ids.platform_height_ofl.text
 			},
-			lambda: self.back(),
-			self.window_size
+			self.back,
+			self.window_size,
+			self.counter,
+			self.DIALOG_MANAGER
 		)
 		asynckivy.start(self.root.ids.battle_field.enter())
 
@@ -983,6 +1034,19 @@ class DigitalPong(MDApp):
 	def window_size(self) -> tuple[int, int]:
 		monitor = tuple(filter(lambda m: m.is_primary, get_monitors()))[0]
 		return monitor.width, monitor.height
+
+	def counter(self, action: str) -> None | dict:
+		match action:
+			case "update":
+				self.root.ids.left_counter.text = "0"
+				self.root.ids.right_counter.text = "0"
+			case "plus_left":
+				self.root.ids.left_counter.text = str(int(self.root.ids.left_counter.text) + 1)
+			case "plus_right":
+				self.root.ids.right_counter.text = str(int(self.root.ids.right_counter.text) + 1)
+			case "get":
+				return {"left": int(self.root.ids.left_counter.text), "right": int(self.root.ids.right_counter.text)}
+
 
 # /\------ROOM MANAGER------/\ #
 
