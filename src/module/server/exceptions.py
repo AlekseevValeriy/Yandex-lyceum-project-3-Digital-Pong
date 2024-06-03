@@ -10,7 +10,7 @@ def catch_error(function):
 		try:
 			return function(*args, **kwargs)
 		except ResponseException as error:
-			logging.error(error.__class__.__name__)
+			logging.error(msg=f"{error.__class__.__name__} --- {function.__name__}")
 			if issubclass(error.__class__, ResponseException):
 				return jsonify(error.response)
 			return jsonify({
@@ -89,6 +89,10 @@ class UserNotInTheRoom(UserException):
 
 class UserCanTQuitHisTeam(UserException):
 	status_code, message = 135, "Нельзя покинуть команду если вы хост"
+
+
+class UserCanTFieldEnter(UserException):
+	status_code, message = 136, "Пользователь не может перейти на поле боя"
 
 
 class RoomException(ResponseException):

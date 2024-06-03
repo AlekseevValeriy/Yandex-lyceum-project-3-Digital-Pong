@@ -1,4 +1,7 @@
+from json import load
+
 from flask import Flask, Response
+from waitress import serve
 
 from server_data import db_session
 from server_data.user import User
@@ -109,8 +112,8 @@ def get_rooms(open: str = "f", names: str = "f", user_limit: int = 0, bots: str 
 	rooms = db_session_app.query(Room)
 
 	# open - игра не начата, можно войти
-	open_status = 0 if open == 't' else 1
-	rooms = list(filter(lambda room: room.game_run == open_status, rooms))
+	if open == 't':
+		rooms = list(filter(lambda room: room.game_run == 0, rooms))
 
 	if user_limit:
 		rooms = list(filter(lambda room: room.users_quantity == user_limit, rooms))
@@ -199,7 +202,7 @@ def user_minus(user_ids: str, user_id: str) -> str:
 	'/create_room/<int:user_id>/<string:bots>/<int:users_quantity>/<int:ball_radius>/<int:ball_speed>/<string:ball_boost>/<int:platform_speed>/<int:platform_height>/<int:platform_width>',
 	methods=["POST", "PUT", "GET"])
 @catch_error
-def create_room(user_id: str, bots: str, users_quantity: int, ball_radius: int, ball_speed: int, ball_boost: str,
+def create_room(user_id: int, bots: str, users_quantity: int, ball_radius: int, ball_speed: int, ball_boost: str,
 				platform_speed: int, platform_height: int, platform_width: int) -> Response:
 	user = db_session_app.query(User).filter(User.id == user_id).first()
 	if not user: raise UserNotExists
@@ -208,14 +211,18 @@ def create_room(user_id: str, bots: str, users_quantity: int, ball_radius: int, 
 	user.role = 'host'
 	db_session_app.add(user)
 	room = Room()
+
+	with open("../../../data/room_settings.json") as file:
+		room_settings = load(file)
+
 	room.bots = True if bots == 't' else False
-	room.users_quantity = users_quantity if 0 < users_quantity < 7 else 1
-	room.ball_radius = ball_radius if 0 < ball_radius < 11 else 1
-	room.ball_speed = ball_speed if 0 < ball_speed < 21 else 1
-	room.ball_boost = float(ball_boost) if 9 < float(ball_boost) < 21 else 10
-	room.platform_speed = platform_speed if 0 < platform_speed < 11 else 1
-	room.platform_height = platform_height if 39 < platform_height < 201 else 40
-	room.platform_width = platform_width if 4 < platform_width < 21 else 5
+	room.users_quantity = users_quantity if 0 < users_quantity < room_settings["users_quantity"]["data"][1] else room_settings["users_quantity"]["data"][0]
+	room.ball_radius = ball_radius if 0 < ball_radius < room_settings["ball_radius"]["data"][1] else room_settings["ball_radius"]["data"][0]
+	room.ball_speed = ball_speed if 0 < ball_speed < room_settings["ball_speed"]["data"][1] else room_settings["ball_speed"]["data"][0]
+	room.ball_boost = float(ball_boost) if 9 < float(ball_boost) < room_settings["ball_boost"]["data"][1] else room_settings["ball_boost"]["data"][0]
+	room.platform_speed = platform_speed if 0 < platform_speed < room_settings["platform_speed"]["data"][1] else room_settings["platform_speed"]["data"][0]
+	room.platform_height = platform_height if 39 < platform_height < room_settings["platform_height"]["data"][1] else room_settings["platform_height"]["data"][0]
+	room.platform_width = platform_width if 4 < platform_width < room_settings["platform_width"]["data"][1] else room_settings["platform_width"]["data"][0]
 
 	room.user_ids = user_plus(room.user_ids, str(user_id))
 	db_session_app.add(room)
@@ -282,6 +289,13 @@ def field_enter(room_id: int, user_id: int) -> Response:
 	users = room.get_users
 	user = db_session_app.query(User).filter(User.id == user_id).first()
 	if not user: raise UserNotExists
+
+	if not room.can_enter:
+		if user.role == "host":
+			room.can_enter = True
+		elif user.role == "player":
+			raise UserCanTFieldEnter
+
 	if str(user.id) not in users: raise RoomUserMiss
 	if room.positions:
 		room.positions = ';'.join((*room.user_positions.split(';'), f"{user_id}:0"))
@@ -328,7 +342,7 @@ def leave_room(user_id: int, ignore: str) -> Response:
 				db_session_app.add(user)
 				room.set_users(user_ids)
 				room.game_run = False
-				positions = ';'.join(filter(lambda a: a.split(':')[0] != str(user_id), room.positions.split(';')))
+				positions = ';'.join(filter(lambda a: a.split(':')[0] != str(user_id), room.positions.split(';'))) if room.positions else ""
 				room.positions = positions
 				db_session_app.add(room)
 	else:
@@ -362,6 +376,16 @@ def can_move(room_id: int) -> Response:
 	return jsonify(True)
 
 
+@app.route('/can_enter/<int:user_id>', methods=["GET"])
+@catch_error
+def can_enter(user_id: int) -> Response:
+	user = db_session_app.query(User).filter(User.id == user_id).first()
+	if not user: raise UserNotExists
+	room = db_session_app.query(Room).filter(Room.id == user.room_id).first()
+	if not room: raise RoomNotExists
+	return jsonify(room.can_enter)
+
+
 @app.route('/move/<int:room_id>/<int:user_id>/<string:platform_position_y>', methods=["PUT"])
 @catch_error
 def move(room_id: int, user_id: int, platform_position_y: str) -> Response:
@@ -375,6 +399,46 @@ def move(room_id: int, user_id: int, platform_position_y: str) -> Response:
 	return jsonify(0)
 
 
+@app.route('/get_room_settings/<int:user_id>', methods=["GET"])
+@catch_error
+def get_room_settings(user_id: int) -> Response:
+	user = db_session_app.query(User).filter(User.id == user_id).first()
+	if not user: raise UserNotExists
+	room = db_session_app.query(Room).filter(Room.id == user.room_id).first()
+	if not room: raise RoomNotExists
+	return jsonify({
+		"bots": room.bots,
+		"users_quantity": room.users_quantity,
+		"ball_radius": room.ball_radius,
+		"ball_speed": room.ball_speed,
+		"ball_boost": room.ball_boost,
+		"platform_speed": room.platform_speed,
+		"platform_height": room.platform_height,
+		"platform_width": room.platform_width
+	})
+
+
+@app.route('/set_room_settings/<int:user_id>/<string:bots>/<int:users_quantity>/<int:ball_radius>/<int:ball_speed>/<string:ball_boost>/<int:platform_speed>/<int:platform_height>/<int:platform_width>', methods=["PUT"])
+@catch_error
+def set_room_settings(user_id: int, bots: str, users_quantity: int, ball_radius: int, ball_speed: int, ball_boost: str,
+					  platform_speed: int, platform_height: int, platform_width: int) -> Response:
+	user = db_session_app.query(User).filter(User.id == user_id).first()
+	if not user: raise UserNotExists
+	room = db_session_app.query(Room).filter(Room.id == user.room_id).first()
+	if not room: raise RoomNotExists
+	room.bots = bots
+	room.users_quantity = users_quantity
+	room.ball_radius = ball_radius
+	room.ball_speed = ball_speed
+	room.ball_boost = ball_boost
+	room.platform_speed = platform_speed
+	room.platform_height = platform_height
+	room.platform_width = platform_width
+	db_session_app.add(room)
+	db_session_app.commit()
+	return jsonify(0)
+
+
 @app.route('/testing', methods=["GET"])
 @catch_error
 def testing() -> Response:
@@ -382,5 +446,5 @@ def testing() -> Response:
 
 
 if __name__ == '__main__':
-	app.run(port=8080, host='127.0.0.1', debug=True)
+	serve(app, port=8080, host='127.0.0.1')
 	logging.basicConfig(level=logging.WARNING)
