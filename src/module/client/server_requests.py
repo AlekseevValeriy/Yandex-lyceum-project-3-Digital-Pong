@@ -80,3 +80,15 @@ def testing() -> None:
 
 def user_side_change(user_id: int, side: str) -> dict[str: str, str: int] | None:
 	return simplification(put(template(f"user_movement/{user_id}/{side}")).json())
+
+
+def room_update_settings(user_id: int, bots: str, users_quantity: int, ball_radius: int, ball_speed: int, ball_boost: str, platform_speed: int, platform_height: int, platform_width: int) -> dict[str: str, str: int] | None:
+	return simplification(put(template(f"set_room_settings/{user_id}/{bots}/{users_quantity}/{ball_radius}/{ball_speed}/{ball_boost}/{platform_speed}/{platform_height}/{platform_width}")).json())
+
+
+def room_get_settings(user_id: int) -> dict[str: int | bool]:
+	return get(template(f"get_room_settings/{user_id}")).json()
+
+
+def room_can_enter(user_id: int) -> dict[str: str, str: int] | bool:
+	return get(template(f"can_enter/{user_id}")).json()

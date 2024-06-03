@@ -33,6 +33,7 @@ class Room(SqlAlchemyBase):
 	platform_height = Column(Integer, nullable=False, default=40)
 	platform_width = Column(Integer, nullable=False, default=5)
 	game_run = Column(Boolean, nullable=False, default=False)
+	can_enter = Column(Boolean, nullable=False, default=False)
 	positions = Column(String, nullable=True)
 
 	def get_divide(self, side: str) -> list:
@@ -40,7 +41,7 @@ class Room(SqlAlchemyBase):
 			case "left":
 				return self.user_divide_left.split(';') if self.user_divide_left else []
 			case "right":
-				return self.user_divide_right.split(';') if self.user_divide_left else []
+				return self.user_divide_right.split(';') if self.user_divide_right else []
 
 	def set_divide(self, side: str, users: list[str | int]) -> None:
 		match side:

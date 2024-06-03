@@ -27,8 +27,9 @@ from src.module.client.battle_enviroment import CustomBattleMDFloatLayout
 from dialog_manager import DialogManager
 from room_user_manager_system import UserManager
 from search_room_manager import SearchRoomManager
-from server_requests import user_log, user_registration, user_delete, testing, room_user_ids, room_user_ids_divine, \
-	room_all, room_enter, room_leave, user_side_change, room_search, room_create, room_delete
+from server_requests import (user_log, user_registration, user_delete, testing, room_user_ids, room_user_ids_divine, \
+							 room_all, room_enter, room_leave, user_side_change, room_search, room_create, room_delete,
+							 room_get_settings, room_update_settings, room_can_enter)
 
 
 class ResponseException(Exception):
@@ -815,6 +816,7 @@ class DigitalPong(MDApp):
 				self.USER_MANAGER.clear()
 				asynckivy.start(self.set_room_settings(True))
 				asynckivy.start(self.set_data_settings('null'))
+				self.DATA["room_role"] = ""
 
 	@property
 	def room_settings(self) -> list:
@@ -959,7 +961,9 @@ class DigitalPong(MDApp):
 				self.set_state("enter_room")
 				asynckivy.start(self.enable_btn("exit"))
 				self.DATA['current_room_id'] = room_id
+				self.DATA["room_role"] = "user"
 				asynckivy.start(self.update_current_users())
+				asynckivy.start(self.update_current_room_settings_user())
 			elif type(response) is dict:
 				raise ResponseException(response)
 		except Exception as exception:
@@ -981,33 +985,112 @@ class DigitalPong(MDApp):
 			if type(response) is int:
 				self.set_state("create_room")
 				self.DATA['current_room_id'] = response
+				self.DATA["room_role"] = "host"
 				asynckivy.start(self.update_current_users())
+				asynckivy.start(self.update_current_room_settings_host())
 			elif type(response) is dict:
 				raise ResponseException(response)
 		except Exception as exception:
 			asynckivy.start(self.get_error_alert(exception))
-		...
 
 	async def update_current_users(self):
 		while self.DATA['current_room_id']:
 			try:
 				asynckivy.start(self.get_users_in_room())
 			except Exception as exception:
+				print("update_current_users")
 				asynckivy.start(self.get_error_alert(exception))
 				break
 
 			await asynckivy.sleep(2)  # 1 on release
 
+	async def update_current_room_settings_user(self):
+		while self.DATA['current_room_id']:
+			try:
+				asynckivy.start(self.get_room_settings())
+				asynckivy.start(self.enter_possibility_check())
+			except Exception as exception:
+				print("update_current_room_settings_user")
+				asynckivy.start(self.get_error_alert(exception))
+				break
+
+			await asynckivy.sleep(2)  # 1 on release
+
+	async def get_room_settings(self):
+		def active(b):
+			b.disabled = False
+		tuple(map(active, self.room_settings))
+		try:
+			response = room_get_settings(self.DATA['id'])
+			if 'status_code' not in response:
+				for name, box_name in zip(response, boxs := dict(zip((
+						"bots",
+						"users_quantity",
+						"ball_radius",
+						"ball_speed",
+						"ball_boost",
+						"platform_speed",
+						"platform_height",
+						"platform_width"
+				), tuple(map(lambda s: s.children[1], self.room_settings))))):
+					boxs[name].text = str(response[name])
+			else:
+				raise ResponseException(response)
+		except Exception as exception:
+			print("get_room_settings")
+			asynckivy.start(self.get_error_alert(exception))
+
+	async def update_current_room_settings_host(self):
+		while self.DATA['current_room_id']:
+			try:
+				asynckivy.start(self.set_room_settings_box())
+			except Exception as exception:
+				print("update_current_room_settings_host")
+				asynckivy.start(self.get_error_alert(exception))
+				break
+
+			await asynckivy.sleep(2)  # 1 on release
+
+	async def enter_possibility_check(self):
+		response = False
+		while not response and self.DATA['current_room_id']:
+			try:
+				response = room_can_enter(self.DATA['id'])
+				if type(response) is bool and response:
+					self.root.ids.room_btn_play.disabled = False
+					break
+			except Exception as exception:
+				print("enter_possibility_check")
+				asynckivy.start(self.get_error_alert(exception))
+				break
+
+			await asynckivy.sleep(2)  # 1 on release
+
+	async def set_room_settings_box(self):
+		try:
+			response = room_update_settings(
+				self.DATA['current_room_id'],
+				**dict(zip(("bots", "users_quantity", "ball_radius", "ball_speed", "ball_boost", "platform_speed",
+							"platform_height", "platform_width"), tuple(map(lambda s: s.text, self.room_settings))))
+			)
+			if type(response) is dict:
+				raise ResponseException(response)
+		except Exception as exception:
+			asynckivy.start(self.get_error_alert(exception))
+
 	async def get_users_in_room(self):
-		response = room_user_ids_divine(self.DATA['current_room_id'])
-		if type(response) is int:
-			pass
-		elif "status_code" not in response:
-			asynckivy.start(self.USER_MANAGER.set_users(response))
-		elif response['status_code'] == 142:
-			raise TheRoomHasBeenDeleted()
-		else:
-			raise ResponseException(response)
+		try:
+			response = room_user_ids_divine(self.DATA['current_room_id'])
+			if type(response) is int:
+				pass
+			elif "status_code" not in response:
+				asynckivy.start(self.USER_MANAGER.set_users(response))
+			elif response['status_code'] == 142:
+				raise TheRoomHasBeenDeleted()
+			else:
+				raise ResponseException(response)
+		except Exception as exception:
+			asynckivy.start(self.get_error_alert(exception))
 
 	async def exit_from_room(self):
 		try:
