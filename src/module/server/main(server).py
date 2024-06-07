@@ -216,13 +216,20 @@ def create_room(user_id: int, bots: str, users_quantity: int, ball_radius: int, 
 		room_settings = load(file)
 
 	room.bots = True if bots == 't' else False
-	room.users_quantity = users_quantity if 0 < users_quantity < room_settings["users_quantity"]["data"][1] else room_settings["users_quantity"]["data"][0]
-	room.ball_radius = ball_radius if 0 < ball_radius < room_settings["ball_radius"]["data"][1] else room_settings["ball_radius"]["data"][0]
-	room.ball_speed = ball_speed if 0 < ball_speed < room_settings["ball_speed"]["data"][1] else room_settings["ball_speed"]["data"][0]
-	room.ball_boost = float(ball_boost) if 9 < float(ball_boost) < room_settings["ball_boost"]["data"][1] else room_settings["ball_boost"]["data"][0]
-	room.platform_speed = platform_speed if 0 < platform_speed < room_settings["platform_speed"]["data"][1] else room_settings["platform_speed"]["data"][0]
-	room.platform_height = platform_height if 39 < platform_height < room_settings["platform_height"]["data"][1] else room_settings["platform_height"]["data"][0]
-	room.platform_width = platform_width if 4 < platform_width < room_settings["platform_width"]["data"][1] else room_settings["platform_width"]["data"][0]
+	room.users_quantity = users_quantity if 0 < users_quantity < room_settings["users_quantity"]["data"][1] else \
+	room_settings["users_quantity"]["data"][0]
+	room.ball_radius = ball_radius if 0 < ball_radius < room_settings["ball_radius"]["data"][1] else \
+	room_settings["ball_radius"]["data"][0]
+	room.ball_speed = ball_speed if 0 < ball_speed < room_settings["ball_speed"]["data"][1] else \
+	room_settings["ball_speed"]["data"][0]
+	room.ball_boost = float(ball_boost) if 9 < float(ball_boost) < room_settings["ball_boost"]["data"][1] else \
+	room_settings["ball_boost"]["data"][0]
+	room.platform_speed = platform_speed if 0 < platform_speed < room_settings["platform_speed"]["data"][1] else \
+	room_settings["platform_speed"]["data"][0]
+	room.platform_height = platform_height if 39 < platform_height < room_settings["platform_height"]["data"][1] else \
+	room_settings["platform_height"]["data"][0]
+	room.platform_width = platform_width if 4 < platform_width < room_settings["platform_width"]["data"][1] else \
+	room_settings["platform_width"]["data"][0]
 
 	room.user_ids = user_plus(room.user_ids, str(user_id))
 	db_session_app.add(room)
@@ -342,7 +349,8 @@ def leave_room(user_id: int, ignore: str) -> Response:
 				db_session_app.add(user)
 				room.set_users(user_ids)
 				room.game_run = False
-				positions = ';'.join(filter(lambda a: a.split(':')[0] != str(user_id), room.positions.split(';'))) if room.positions else ""
+				positions = ';'.join(filter(lambda a: a.split(':')[0] != str(user_id),
+											room.positions.split(';'))) if room.positions else ""
 				room.positions = positions
 				db_session_app.add(room)
 	else:
@@ -386,19 +394,6 @@ def can_enter(user_id: int) -> Response:
 	return jsonify(room.can_enter)
 
 
-@app.route('/move/<int:room_id>/<int:user_id>/<string:platform_position_y>', methods=["PUT"])
-@catch_error
-def move(room_id: int, user_id: int, platform_position_y: str) -> Response:
-	room = db_session_app.query(Room).filter(Room.id == room_id).first()
-	if not room: raise RoomNotExists
-	users = dict(map(lambda a: a.split(':'), room.positions.split(';')))
-	users[str(user_id)] = platform_position_y
-	room.positions = ';'.join(map(lambda a: ':'.join((a, users[a])), users))
-	db_session_app.add(room)
-	db_session_app.commit()
-	return jsonify(0)
-
-
 @app.route('/get_room_settings/<int:user_id>', methods=["GET"])
 @catch_error
 def get_room_settings(user_id: int) -> Response:
@@ -418,7 +413,9 @@ def get_room_settings(user_id: int) -> Response:
 	})
 
 
-@app.route('/set_room_settings/<int:user_id>/<string:bots>/<int:users_quantity>/<int:ball_radius>/<int:ball_speed>/<string:ball_boost>/<int:platform_speed>/<int:platform_height>/<int:platform_width>', methods=["PUT"])
+@app.route(
+	'/set_room_settings/<int:user_id>/<string:bots>/<int:users_quantity>/<int:ball_radius>/<int:ball_speed>/<string:ball_boost>/<int:platform_speed>/<int:platform_height>/<int:platform_width>',
+	methods=["PUT"])
 @catch_error
 def set_room_settings(user_id: int, bots: str, users_quantity: int, ball_radius: int, ball_speed: int, ball_boost: str,
 					  platform_speed: int, platform_height: int, platform_width: int) -> Response:
@@ -426,14 +423,92 @@ def set_room_settings(user_id: int, bots: str, users_quantity: int, ball_radius:
 	if not user: raise UserNotExists
 	room = db_session_app.query(Room).filter(Room.id == user.room_id).first()
 	if not room: raise RoomNotExists
-	room.bots = bots
+	room.bots = bool(bots)
 	room.users_quantity = users_quantity
 	room.ball_radius = ball_radius
 	room.ball_speed = ball_speed
-	room.ball_boost = ball_boost
+	room.ball_boost = float(ball_boost)
 	room.platform_speed = platform_speed
 	room.platform_height = platform_height
 	room.platform_width = platform_width
+	db_session_app.add(room)
+	db_session_app.commit()
+	return jsonify(0)
+
+
+@app.route('/get_user_side/<int:user_id>', methods=["GET"])
+@catch_error
+def get_user_side(user_id: int) -> Response:
+	user = db_session_app.query(User).filter(User.id == user_id).first()
+	if not user: raise UserNotExists
+	room = db_session_app.query(Room).filter(Room.id == user.room_id).first()
+	if not room: raise RoomNotExists
+	if user_id in room.get_divide("left"):
+		return jsonify('left')
+	elif user_id in room.get_divide("right"):
+		return jsonify('right')
+
+	return jsonify(None)
+
+
+@app.route('/all_on_place/<int:room_id>', methods=["GET"])
+@catch_error
+def all_on_place(room_id: int) -> Response:
+	room = db_session_app.query(Room).filter(Room.id == room_id).first()
+	if not room: raise RoomNotExists
+	if room.users_quantity == room.user_positions_quantity:
+		return jsonify(True)
+	return jsonify(False)
+
+
+@app.route('/score_get/<int:room_id>', methods=["GET"])
+@catch_error
+def score_get(room_id: int) -> Response:
+	room = db_session_app.query(Room).filter(Room.id == room_id).first()
+	if not room: raise RoomNotExists
+	return jsonify(room.dict_score)
+
+
+@app.route('/score_update/<int:room_id>/<string:left_score>/<string:right_score>', methods=["PUT"])
+@catch_error
+def score_update(room_id: int, left_score: str, right_score: str) -> Response:
+	room = db_session_app.query(Room).filter(Room.id == room_id).first()
+	if not room: raise RoomNotExists
+	room.set_score(left_score, right_score)
+	db_session_app.add(room)
+	db_session_app.commit()
+	return jsonify(0)
+
+
+@app.route('/self_position_send/<int:user_id>/<int:position>', methods=["PUT"])
+@catch_error
+def self_position_send(user_id: int, position: int) -> Response:
+	user = db_session_app.query(User).filter(User.id == user_id).first()
+	if not user: raise UserNotExists
+	room = db_session_app.query(Room).filter(Room.id == user.room_id).first()
+	if not room: raise RoomNotExists
+	positions = dict(map(lambda r: r.split(':'), room.positions.split(';')))
+	positions[str(user_id)] = str(position)
+	room.positions = ';'.join(map(lambda name: f"{name}:{positions[name]}", positions))
+	db_session_app.add(room)
+	db_session_app.commit()
+	return jsonify(0)
+
+
+@app.route('/get_field_positions/<int:room_id>', methods=["GET"])
+@catch_error
+def get_field_positions(room_id: int) -> Response:
+	room = db_session_app.query(Room).filter(Room.id == room_id).first()
+	if not room: raise RoomNotExists
+	return jsonify(dict(map(lambda r: r.split(':'), room.positions.split(';'))))
+
+
+@app.route('/update_field_positions/<int:room_id>/<sting:field_positions>', methods=["PUT"])
+@catch_error
+def update_field_positions(room_id: int, field_positions: str) -> Response:
+	room = db_session_app.query(Room).filter(Room.id == room_id).first()
+	if not room: raise RoomNotExists
+	room.positions = field_positions
 	db_session_app.add(room)
 	db_session_app.commit()
 	return jsonify(0)

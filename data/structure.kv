@@ -141,7 +141,7 @@ MDScreenManager:
             CustomMDButton:
                 pos_hint: {"x": .05, "top": .85}
                 size_hint_x: 0.125
-                on_release:  if not self.disabled:  asynckivy.start(app.enter_to_battle_filed())
+                on_release:  if not self.disabled:  asynckivy.start(app.enter_to_battle_filed("offline"))
 
                 MDButtonIcon:
                     icon: "shape-plus-outline"
@@ -333,7 +333,7 @@ MDScreenManager:
                 id: room_btn_play
                 pos_hint: {"x": .05, "top": .65}
                 size_hint_x: 0.125
-                on_release:  if not self.disabled:  lambda a: a
+                on_release:  if not self.disabled: asynckivy.start(app.enter_to_battle_filed("online"))
 
                 MDButtonIcon:
                     icon: "shape-plus-outline"

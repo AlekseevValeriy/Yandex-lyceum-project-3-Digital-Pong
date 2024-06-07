@@ -14,8 +14,9 @@ from kivymd.uix.list import MDListItem, MDListItemSupportingText, MDListItemTrai
 from kivymd.uix.textfield import MDTextField, MDTextFieldHintText, MDTextFieldHelperText
 from kivymd.uix.widget import MDWidget
 from kivy.properties import StringProperty, NumericProperty, BooleanProperty
-from kivy.graphics import Color
-from pymorphy2 import MorphAnalyzer
+
+from server_requests import (room_all_users_on_field, room_user_ids_divine, room_score_get, room_score_update,
+							 room_position_send, room_field_positions_get, room_field_positions_put)
 
 
 @dataclass
@@ -81,6 +82,7 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		self.my_name: str | None = None
+		self.my_side: str | None = None
 		self.mode: str | None = None
 		self.widgets_data: dict | None = {}
 		self.exit_action: Callable | None = None
@@ -90,6 +92,8 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 		self.game_process: bool = False
 		self.counter_action: Callable | None = None
 		self.dialog: Callable | None = None
+		self.room_id: int | None = None
+		self.role: str | None = None
 
 	def on_touch_down(self, touch):
 		super().on_touch_down(touch)
@@ -103,7 +107,8 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 		self.touch(touch)
 
 	def pre_init(self, my_name: str, mode: str, widgets_data: dict, exit_action: Callable, window_size: tuple[int, int],
-				 counter_action: Callable, dialog: Callable) -> None:
+				 counter_action: Callable, dialog: Callable, side: str = None, room_id: int = None,
+				 role: str = None) -> None:
 		"""
 		Используется перед `enter()` для постановки всех данный нужных коду - `mode`, `widgets_data`
 		"""
@@ -114,6 +119,9 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 		self.window_size = window_size
 		self.counter_action = counter_action
 		self.dialog = dialog
+		self.my_side = side
+		self.room_id = room_id
+		self.role = role
 
 	@property
 	def window_x(self) -> int:
@@ -134,7 +142,7 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 			case "offline":
 				asynckivy.start(self.offline_create_object())
 			case "online":
-				...
+				asynckivy.start(self.online_create_object())
 
 	async def exit(self):
 		if self.children:
@@ -145,8 +153,7 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 
 	async def end_exit(self):
 		asynckivy.start(self.exit())
-		self.dialog('battle_statistic')
-
+		self.dialog("battle_statistic")
 
 	def create_object(self, *data: tuple[str, str, bool] | tuple[str]) -> None:
 		"""
@@ -159,22 +166,46 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 			else:
 				self.add_widget(self.platform_template(name=element[0], side=element[1], auto=element[2]))
 
+	def create_objects(self, sides: dict[str: list[str]]) -> None:
+		"""
+		Создаёт объекты из принимаемых данных
+		"""
+		for side in sides:
+			tuple(map(lambda element: self.add_widget(self.platform_template(name=element, side=side)), sides[side]))
+
 	async def offline_create_object(self):
 		self.create_object(("b_1"), (self.my_name, "left", False), ("enemy", "right", True))
 		self.set_positions()
 		asynckivy.start(self.start_game())
 
-	def online_create_object(self):
-		...  # wait when all players are in place and then
-		...  # set and create all objects
-		self.set_positions()
-		asynckivy.start(self.start_game())
+	async def online_create_object(self):
+		asynckivy.start(self.wait_all_players())
+
+	async def wait_all_players(self):
+		try:
+			while True:
+				response = room_all_users_on_field(self.room_id)
+				if type(response) is int and response:
+					break
+				await asynckivy.sleep(2)  # 1
+
+			response = room_user_ids_divine(self.room_id)
+			if "status_code" in response:
+				raise Exception
+
+			left_data = list(map(lambda name: (name, "left", False), response["left"]))
+			right_data = list(map(lambda name: (name, "right", False), response["right"]))
+			self.create_object(*left_data, *right_data)
+			self.set_positions()
+			asynckivy.start(self.start_game())
+		except Exception:
+			pass
 
 	async def start_game(self):
 		self.game_process = True
 		match self.mode:
 			case "offline":
-				self.children_d['b_1'].set_random_vector_x()
+				self.children_d["b_1"].set_random_vector_x()
 				asynckivy.start(self.offline_game_process())
 			case "online":
 				asynckivy.start(self.online_game_process())
@@ -195,8 +226,81 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 			await asynckivy.sleep(1 / 60)
 
 	async def online_game_process(self):
-		...
+		match self.role:
+			case "player":
+				while self.game_process:
+					asynckivy.start(self.online_player_requests())
+			case "host":
+				while self.game_process:
+					asynckivy.start(self.online_host_requests())
 		await asynckivy.sleep(1 / 60)
+
+	async def online_player_requests(self):
+		asynckivy.start(self.online_get_field_positions())
+		asynckivy.start(self.online_send_self_position())
+		asynckivy.start(self.online_track_get_field_status())
+
+	async def online_host_requests(self):
+		asynckivy.start(self.online_send_field_positions())
+		asynckivy.start(self.online_track_send_field_status())
+
+	async def online_get_field_positions(self):
+		def set_pos(child):
+			self.children_d[child] = response[child]
+
+		try:
+			response = room_field_positions_get(self.room_id)
+			if 'status_code' in response:
+				raise Exception("online_get_field_positions", self.room_id)
+			else:
+				tuple(map(set_pos, response))
+		except Exception as error:
+			print(error)
+
+	async def online_send_field_positions(self):
+		def get_pos(child):
+			match child.type:
+				case 'platform':
+					return f"{child.name}:{child.center_y}"
+				case 'ball':
+					return f"{child.name}:{child.center_x}:{child.center_y}"
+
+		try:
+			positions = ";".join(map(get_pos, self.children))
+			response = room_field_positions_put(self.room_id, positions)
+			if response:
+				raise Exception("online_send_field_positions", self.room_id, positions)
+		except Exception as error:
+			print(error)
+
+	async def online_send_self_position(self):
+		try:
+			response = room_position_send(int(self.my_name), self.children_d[self.my_name])
+			if response:
+				raise Exception("online_send_self_position", int(self.my_name), self.children_d[self.my_name])
+			else:
+				self.counter_action('change', **response)
+		except Exception as error:
+			print(error)
+
+	async def online_track_get_field_status(self):
+		try:
+			response = room_score_get(self.room_id)
+			if 'status_code' in response:
+				raise Exception("online_track_get_field_status", self.room_id)
+			else:
+				self.counter_action('change', **response)
+		except Exception as error:
+			print(error)
+
+	async def online_track_send_field_status(self):
+		try:
+			score = self.counter_action['get']
+			response = room_score_update(self.room_id, score['left'], score['right'])
+			if response:
+				raise Exception("online_track_send_field_status", self.room_id, score)
+		except Exception as error:
+			print(error)
 
 	def set_positions(self):
 		self.counter_action("update")
@@ -257,30 +361,30 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 
 	def defeat(self, side: str) -> None:
 		def reset_ball(widget: GameObject) -> None:
-			if widget.type == 'ball':
+			if widget.type == "ball":
 				widget.reset()
 				widget.set_center_y(self.window_y / 2)
 				widget.set_center_x(self.window_x / 2)
 				widget.set_random_vector_x()
 
 		def stop_ball(widget: GameObject) -> None:
-			if widget.type == 'ball':
+			if widget.type == "ball":
 				widget.stop()
 
 		match side:
 			case "left":
-				self.counter_action('plus_right')
+				self.counter_action("plus_right")
 			case "right":
-				self.counter_action('plus_left')
+				self.counter_action("plus_left")
 
-		points = self.counter_action('get')
+		points = self.counter_action("get")
 		tuple(map(reset_ball, self.children))
-		if points['left'] >= 5:
+		if points["left"] >= 5:
 			# left win
 			tuple(map(stop_ball, self.children))
 			asynckivy.start(self.end_dialog("left"))
 			...
-		elif points['right'] >= 5:
+		elif points["right"] >= 5:
 			# right win
 			tuple(map(stop_ball, self.children))
 			asynckivy.start(self.end_dialog("right"))
@@ -288,20 +392,19 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 
 	def right_word(self, quantity: int) -> str:
 		if (11 <= quantity % 100 <= 14) or (quantity % 10 in [0, 5, 6, 7, 8, 9]):
-			return 'шаров'
+			return "шаров"
 		elif quantity % 10 in [2, 3, 4]:
-			return 'шара'
-		return 'шар'
+			return "шара"
+		return "шар"
 
 	async def end_dialog(self, side):
-		side = {'left': 'левая', 'right': 'правая'}[side]
+		side = {"left": "левая", "right": "правая"}[side]
 		self.dialog(
 			"battle_statistic",
 			side=f"Победила {side} сторона",
-			score_left=f"Забила {self.counter_action('get')['left']} {self.right_word(int(self.counter_action('get')['left']))}",
-			score_right=f"Забила {self.counter_action('get')['right']} {self.right_word(int(self.counter_action('get')['right']))}"
+			score_left=f"Забила {self.counter_action("get")["left"]} {self.right_word(int(self.counter_action("get")["left"]))}",
+			score_right=f"Забила {self.counter_action("get")["right"]} {self.right_word(int(self.counter_action("get")["right"]))}"
 		)
-
 
 
 class GameObject(MDWidget, SizeConvertor):
@@ -311,10 +414,10 @@ class GameObject(MDWidget, SizeConvertor):
 	size_hint = [None, None]
 	pos_confines_x = [0, 0]
 	pos_confines_y = [0, 0]
-	color = StringProperty('0;0;0;0')
+	color = StringProperty("0;0;0;0")
 
 	def set_color(self):
-		self.md_bg_color = list(map(float, self.color.split(';')))
+		self.md_bg_color = list(map(float, self.color.split(";")))
 
 	def move(self) -> None:
 		...
@@ -359,7 +462,6 @@ class Ball(GameObject):
 		self.vector_x = 0
 		self.vector_y = 0
 
-
 	@property
 	def float_boost(self) -> float:
 		return self.boost / 10
@@ -378,12 +480,12 @@ class Ball(GameObject):
 		if self.x < 0:
 			# self.x = 0
 			# self.vector_x = self.vector_x * -1
-			self.counter_action('left')
+			self.counter_action("left")
 
 		if self.right > self.pos_confines_x[1]:
 			# self.x = self.pos_confines_x[1] - self.width
 			# self.vector_x = self.vector_x * -1
-			self.counter_action('right')
+			self.counter_action("right")
 
 		tuple(map(manipulation, widgets))
 

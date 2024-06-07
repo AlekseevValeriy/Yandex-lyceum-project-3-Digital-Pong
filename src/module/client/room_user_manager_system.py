@@ -4,7 +4,7 @@ type layout_list = list[MDFloatLayout, MDFloatLayout, MDFloatLayout]
 
 
 class UserManager:
-	EMPTY = {'left': [], "right": []}
+	EMPTY = {"left": [], "right": []}
 
 	def __init__(self):
 		self.left_children: layout_list | None = None
@@ -13,10 +13,8 @@ class UserManager:
 		self.translate = None
 
 	async def set_users(self, users: dict[str: tuple[str]]) -> None:
-		print(users)
 		for side in users:
 			if users[side]:
-				print(side, self.template(users[side]),)
 				for user, child in zip(self.template(users[side]), self.translate[side]):
 					if user != self.get_text(child):
 						self.set_text(child, user)
@@ -30,7 +28,7 @@ class UserManager:
 		self.left_children = tuple(reversed(left_box.children))
 		self.right_children = tuple(reversed(right_box.children))
 
-		self.translate = {'left': self.left_children, 'right': self.right_children}
+		self.translate = {"left": self.left_children, "right": self.right_children}
 
 	def template(self, users: tuple[str]) -> tuple:
 		for _ in range(3 - len(users := list(users))):
