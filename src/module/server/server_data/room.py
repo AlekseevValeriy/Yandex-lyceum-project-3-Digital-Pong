@@ -35,6 +35,7 @@ class Room(SqlAlchemyBase):
 	game_run = Column(Boolean, nullable=False, default=False)
 	can_enter = Column(Boolean, nullable=False, default=False)
 	positions = Column(String, nullable=True)
+	score = Column(String, nullable=False, default="0;0")
 
 	def get_divide(self, side: str) -> list:
 		match side:
@@ -86,4 +87,11 @@ class Room(SqlAlchemyBase):
 
 	@property
 	def user_positions_quantity(self) -> int:
-		return len(tuple(filter(lambda obj: obj[:2] != 'b_', self.positions))) if self.positions else 0
+		return len(tuple(filter(lambda obj: not obj.startswith('b_'), self.positions.split(';')))) if self.positions else 0
+
+	@property
+	def dict_score(self) -> dict[str: str]:
+		return dict(zip(('left', 'right'), self.score.split(';')))
+
+	def set_score(self, left_score: int | str, right_score: int | str) -> None:
+		self.score = f"{left_score};{right_score}"

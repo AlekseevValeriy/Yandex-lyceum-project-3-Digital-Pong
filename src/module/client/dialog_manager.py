@@ -43,9 +43,9 @@ class DialogManager:
 
 	def __setitem__(self, key, value):
 		try:
-			assert type(key) is str, 'TypeError'
-			assert type(value) is CustomMDDialog, 'TypeError'
-			assert key not in self.dialogs, 'KeyError'
+			assert type(key) is str, "TypeError"
+			assert type(value) is CustomMDDialog, "TypeError"
+			assert key not in self.dialogs, "KeyError"
 			self.dialogs[key] = value
 		except AssertionError as error:
 			match str(error):
@@ -65,5 +65,5 @@ class DialogManager:
 		return str(self.dialogs)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 	a = DialogManager()

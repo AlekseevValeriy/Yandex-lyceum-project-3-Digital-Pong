@@ -2,7 +2,8 @@ from typing import Any
 
 from requests import get, post, put, delete
 
-URL = "http://127.0.0.1:8080"  # API
+with open('../../../data/server_address.txt', 'r', encoding='utf-8') as address:
+	URL = address.read()  # API
 
 
 def template(request: str) -> str:
@@ -33,8 +34,7 @@ def room_all(is_open: bool, names: bool, user_limit: int, bots: bool) -> dict[st
 	return get(template(f"get_rooms/{str(is_open)[0].lower()}/{str(names)[0].lower()}/{user_limit}/{str(bots)[0].lower()}")).json()
 
 
-def room_create(user_id: str, bots: str, users_quantity: int, ball_radius: int, ball_speed: int, ball_boost: str,
-				platform_speed: int, platform_height: int, platform_width: int) -> int | dict[str: str, str: int]:
+def room_create(user_id: str, bots: str, users_quantity: int, ball_radius: int, ball_speed: int, ball_boost: str, platform_speed: int, platform_height: int, platform_width: int) -> int | dict[str: str, str: int]:
 	return post(template(f"/create_room/{user_id}/{bots}/{users_quantity}/{ball_radius}/{ball_speed}/{ball_boost}/{platform_speed}/{platform_height}/{platform_width}")).json()
 
 
@@ -70,10 +70,6 @@ def room_can_move(room_id: int) -> bool | dict[str: str, str: int]:
 	return get(template(f"can_move/{room_id}")).json()
 
 
-def room_move(room_id: int, user_id: int, platform_position_y: int) -> dict[str: str, str: int] | None:
-	return simplification(put(template(f"move/{room_id}/{user_id}/{platform_position_y}")).json())
-
-
 def testing() -> None:
 	return simplification(get(template("testing")).json())
 
@@ -92,3 +88,31 @@ def room_get_settings(user_id: int) -> dict[str: int | bool]:
 
 def room_can_enter(user_id: int) -> dict[str: str, str: int] | bool:
 	return get(template(f"can_enter/{user_id}")).json()
+
+
+def user_get_side(user_id: int) -> dict[str: str, str: int] | str | None:
+	return get(template(f"get_user_side/{user_id}")).json()
+
+
+def room_all_users_on_field(room_id: int) -> dict[str: str, str: int] | bool:
+	return get(template(f"all_on_place/{room_id}")).json()
+
+
+def room_score_get(room_id: int) -> dict[str: str, str: int] | dict[str: str]:
+	return get(template(f"score_get/{room_id}")).json()
+
+
+def room_score_update(room_id: int, left_score: str, right_score: str) -> dict[str: str, str: int] | None:
+	return simplification(put(template(f"score_get/{room_id}/{left_score}/{right_score}")).json())
+
+
+def room_position_send(user_id: int, position: int) -> dict[str: str, str: int] | None:
+	return simplification(put(template(f"self_position_send/{user_id}/{position}")).json())
+
+
+def room_field_positions_get(room_id: int) -> dict[str: str, str: int] | dict[str: str]:
+	return get(template(f"get_field_positions/{room_id}")).json()
+
+
+def room_field_positions_put(room_id: int, field_positions: str) -> dict[str: str, str: int] | None:
+	return simplification(put(template(f"update_field_positions/{room_id}/{field_positions}")).json())

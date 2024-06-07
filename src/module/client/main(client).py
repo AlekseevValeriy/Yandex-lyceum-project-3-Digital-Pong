@@ -29,7 +29,7 @@ from room_user_manager_system import UserManager
 from search_room_manager import SearchRoomManager
 from server_requests import (user_log, user_registration, user_delete, testing, room_user_ids, room_user_ids_divine, \
 							 room_all, room_enter, room_leave, user_side_change, room_search, room_create, room_delete,
-							 room_get_settings, room_update_settings, room_can_enter)
+							 room_get_settings, room_update_settings, room_can_enter, user_get_side, room_enter_field)
 
 
 class ResponseException(Exception):
@@ -312,7 +312,7 @@ class DigitalPong(MDApp):
 					on_release=kwargs['confirm_action']
 				),
 				spacing="8dp",
-			),
+			)
 		)
 		self.DIALOG_MANAGER["rename_warning"] = confirm_alert(
 			message="Вы точно желаете сменить имя своего аккаунта?",
@@ -329,36 +329,36 @@ class DigitalPong(MDApp):
 			confirm_action=lambda item: self.exit_for_account(forever=False, item=item),
 			cancel_action=lambda item: self.DIALOG_MANAGER("exit_from_account_warning")
 		)
-		self.DIALOG_MANAGER['rename'] = CustomMDDialog(
-			MDDialogHeadlineText(
-				text="Введите новое имя"
-			),
-			MDDialogContentContainer(
-				MDTextField(
-					MDTextFieldHintText(
-						text="Имя пользователя"
-					),
-					MDTextFieldMaxLengthText(max_text_length=16),
-					mode="outlined"),
-				orientation="vertical"
-			),
-			MDDialogButtonContainer(
-				Widget(),
-				MDButton(
-					MDButtonText(
-						text="ОТМЕНА"
-					),
-					style="text",
-					# on_release=lambda item: item
-				),
-				MDButton(
-					MDButtonText(text="ПОДТВЕРДИТЬ"),
-					style="text",
-					# on_release=lambda item: item
-				),
-				spacing="8dp"
-			),
-		)
+		# self.DIALOG_MANAGER['rename'] = CustomMDDialog(
+		# 	MDDialogHeadlineText(
+		# 		text="Введите новое имя"
+		# 	),
+		# 	MDDialogContentContainer(
+		# 		MDTextField(
+		# 			MDTextFieldHintText(
+		# 				text="Имя пользователя"
+		# 			),
+		# 			MDTextFieldMaxLengthText(max_text_length=16),
+		# 			mode="outlined"),
+		# 		orientation="vertical"
+		# 	),
+		# 	MDDialogButtonContainer(
+		# 		Widget(),
+		# 		MDButton(
+		# 			MDButtonText(
+		# 				text="ОТМЕНА"
+		# 			),
+		# 			style="text",
+		# 			# on_release=lambda item: item
+		# 		),
+		# 		MDButton(
+		# 			MDButtonText(text="ПОДТВЕРДИТЬ"),
+		# 			style="text",
+		# 			# on_release=lambda item: item
+		# 		),
+		# 		spacing="8dp"
+		# 	),
+		# )
 		self.DIALOG_MANAGER["project_info"] = CustomMDDialog(
 			MDDialogHeadlineText(
 				text="Проект"
@@ -510,6 +510,25 @@ class DigitalPong(MDApp):
 				Widget()
 			)
 		)
+		self.DIALOG_MANAGER["choice_side_alert"] = CustomMDDialog(
+			MDDialogHeadlineText(
+				text="Предупреждение"
+			),
+			MDDialogSupportingText(
+				text="Пожалуйста, выберите сторону, прежде чем войти на поле битвы",
+				halign="left"
+			),
+			MDDialogButtonContainer(
+				Widget(),
+				MDButton(
+					MDButtonText(text="ПОДТВЕРДИТЬ"),
+					style="text",
+					on_release=lambda *args: self.DIALOG_MANAGER("choice_side_alert")
+				),
+				Widget(),
+				spacing="8dp"
+			)
+		)
 
 	# /\------START------/\ #
 
@@ -627,25 +646,45 @@ class DigitalPong(MDApp):
 		self.root.current = "offline_room_creation_menu"
 		asynckivy.start(self.root.ids.battle_field.end_exit())
 
-	async def enter_to_battle_filed(self):
-		self.root.current = "battle_field"
-		self.root.ids.battle_field.pre_init(
-			str(self.DATA['id']),
-			'offline',
-			{
-				"ball_radius": self.root.ids.ball_radius_ofl.text,
-				"ball_speed": self.root.ids.ball_speed_ofl.text,
-				"ball_boost": self.root.ids.platform_height_ofl.text,
-				"platform_speed": self.root.ids.platform_speed_ofl.text,
-				"platform_width": self.root.ids.platform_width_ofl.text,
-				"platform_height": self.root.ids.platform_height_ofl.text
-			},
-			self.back,
-			self.window_size,
-			self.counter,
-			self.DIALOG_MANAGER
-		)
-		asynckivy.start(self.root.ids.battle_field.enter())
+	async def enter_to_battle_filed(self, state: str):
+		try:
+			match state:
+				case "online":
+					if not (side := user_get_side(self.DATA["id"])):
+						self.DIALOG_MANAGER("choice_side_alert")
+					elif type(side) is dict:
+						raise ResponseException(side)
+					response = room_enter_field(self.DATA["current_room_id"], self.DATA["id"])
+					if response or type(response) is dict:
+						raise ResponseException(side)
+					room_id = self.DATA["current_room_id"]
+				case "offline":
+					side, room_id = None, None
+
+			self.root.current = "battle_field"
+			self.root.ids.battle_field.pre_init(
+				str(self.DATA['id']),
+				state,
+				{
+					"ball_radius": self.root.ids.ball_radius_ofl.text,
+					"ball_speed": self.root.ids.ball_speed_ofl.text,
+					"ball_boost": self.root.ids.platform_height_ofl.text,
+					"platform_speed": self.root.ids.platform_speed_ofl.text,
+					"platform_width": self.root.ids.platform_width_ofl.text,
+					"platform_height": self.root.ids.platform_height_ofl.text,
+
+				},
+				self.back,
+				self.window_size,
+				self.counter,
+				self.DIALOG_MANAGER,
+				side=side,
+				room_id=room_id,
+				role=self.DATA['room_role']
+			)
+			asynckivy.start(self.root.ids.battle_field.enter())
+		except Exception as exception:
+			asynckivy.start(self.get_error_alert(exception))
 
 	async def choice_state_enter(self, situation):
 		self.SETTINGS['situation'] = situation
@@ -1056,7 +1095,7 @@ class DigitalPong(MDApp):
 		while not response and self.DATA['current_room_id']:
 			try:
 				response = room_can_enter(self.DATA['id'])
-				if type(response) is bool and response:
+				if response and type(response) is bool:
 					self.root.ids.room_btn_play.disabled = False
 					break
 			except Exception as exception:
@@ -1069,9 +1108,9 @@ class DigitalPong(MDApp):
 	async def set_room_settings_box(self):
 		try:
 			response = room_update_settings(
-				self.DATA['current_room_id'],
+				self.DATA['id'],
 				**dict(zip(("bots", "users_quantity", "ball_radius", "ball_speed", "ball_boost", "platform_speed",
-							"platform_height", "platform_width"), tuple(map(lambda s: s.text, self.room_settings))))
+							"platform_height", "platform_width"), tuple(map(lambda s: s.children[1].text, self.room_settings))))
 			)
 			if type(response) is dict:
 				raise ResponseException(response)
@@ -1118,7 +1157,7 @@ class DigitalPong(MDApp):
 		monitor = tuple(filter(lambda m: m.is_primary, get_monitors()))[0]
 		return monitor.width, monitor.height
 
-	def counter(self, action: str) -> None | dict:
+	def counter(self, action: str, left: str = None, right: str = None) -> None | dict:
 		match action:
 			case "update":
 				self.root.ids.left_counter.text = "0"
@@ -1129,6 +1168,9 @@ class DigitalPong(MDApp):
 				self.root.ids.right_counter.text = str(int(self.root.ids.right_counter.text) + 1)
 			case "get":
 				return {"left": int(self.root.ids.left_counter.text), "right": int(self.root.ids.right_counter.text)}
+			case "change":
+				self.root.ids.left_counter.text = left
+				self.root.ids.right_counter.text = right
 
 
 # /\------ROOM MANAGER------/\ #
