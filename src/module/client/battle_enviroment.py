@@ -62,6 +62,12 @@ class SizeConvertor:
 	def convert_coordinates(self, coordinates: list[int | float, int | float]) -> list[float, float]:
 		return [coordinates[0] * self.coefficient_x, coordinates[1] * self.coefficient_y]
 
+	def inner_y_coordinate(self, y=None):
+		return y / self.coefficient_y
+
+	def set_outer_pos(self, x = None, y = None):
+		...
+
 	def convert_x_coordinate(self, x_coordinate: int | float) -> float:
 		return x_coordinate * self.coefficient_x
 
@@ -184,19 +190,23 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 	async def wait_all_players(self):
 		try:
 			while True:
+				print('wait', 1)
 				response = room_all_users_on_field(self.room_id)
-				if type(response) is int and response:
+				if type(response) is not dict and response:
 					break
 				await asynckivy.sleep(2)  # 1
-
+			print('all on place', 2)
 			response = room_user_ids_divine(self.room_id)
 			if "status_code" in response:
 				raise Exception
 
 			left_data = list(map(lambda name: (name, "left", False), response["left"]))
 			right_data = list(map(lambda name: (name, "right", False), response["right"]))
+			print('create', 3)
 			self.create_object(*left_data, *right_data)
+			print('set positions', 4)
 			self.set_positions()
+			print('start game', 5)
 			asynckivy.start(self.start_game())
 		except Exception:
 			pass
@@ -211,29 +221,47 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 				asynckivy.start(self.online_game_process())
 
 	async def offline_game_process(self):
-		while self.game_process:
-			def widget_action(widget: GameObject) -> None:
-				match widget.type:
-					case "platform":
-						if widget.auto:
-							widget.move(self.children_d["b_1"].center_y)
-						elif self.touch.can:
-							widget.move(self.touch.y)
-					case "ball":
-						widget.move(self.children)
+		def widget_action(widget: GameObject) -> None:
+			match widget.type:
+				case "platform":
+					if widget.auto:
+						widget.move(self.children_d["b_1"].center_y)
+					elif self.touch.can:
+						widget.move(self.touch.y)
+				case "ball":
+					widget.move(self.children)
 
+		while self.game_process:
 			tuple(map(widget_action, self.children))
 			await asynckivy.sleep(1 / 60)
 
 	async def online_game_process(self):
+		def player_widget_action(widget):
+			print(self.touch.can. self.touch.y)
+			if self.touch.can:
+				widget.move(self.touch.y)
+
+		def host_widget_action(widget):
+			match widget.type:
+				case "platform":
+					if self.touch.can:
+						widget.move(self.touch.y)
+				case "ball":
+					widget.move(self.children)
+
 		match self.role:
 			case "player":
 				while self.game_process:
+					player_widget_action(self.children_d[self.my_name])
 					asynckivy.start(self.online_player_requests())
+					await asynckivy.sleep(1 / 60)
 			case "host":
 				while self.game_process:
+					print('host')
+					player_widget_action(self.children_d[self.my_name])
+					# tuple(map(host_widget_action, [*list(filter(lambda child: child.type == 'ball', self.children))]))
 					asynckivy.start(self.online_host_requests())
-		await asynckivy.sleep(1 / 60)
+					await asynckivy.sleep(1 / 60)
 
 	async def online_player_requests(self):
 		asynckivy.start(self.online_get_field_positions())
@@ -241,12 +269,17 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 		asynckivy.start(self.online_track_get_field_status())
 
 	async def online_host_requests(self):
+		asynckivy.start(self.online_get_field_positions())
 		asynckivy.start(self.online_send_field_positions())
 		asynckivy.start(self.online_track_send_field_status())
 
 	async def online_get_field_positions(self):
 		def set_pos(child):
-			self.children_d[child] = response[child]
+			match self.children_d[child].type:
+				case 'platform':
+					self.children_d[child].set_outer_pos(float(response[child]))
+				case 'ball':
+					self.children_d[child].set_outer_pos(*tuple(map(float, response[child].split(':'))))
 
 		try:
 			response = room_field_positions_get(self.room_id)
@@ -255,15 +288,15 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 			else:
 				tuple(map(set_pos, response))
 		except Exception as error:
-			print(error)
+			print(error, 1)
 
 	async def online_send_field_positions(self):
 		def get_pos(child):
 			match child.type:
 				case 'platform':
-					return f"{child.name}:{child.center_y}"
+					return f"{child.name}:{child.get_inner_y_coordinate()}"
 				case 'ball':
-					return f"{child.name}:{child.center_x}:{child.center_y}"
+					return f"{child.name}:{child.get_inner_x_coordinate()}:{child.center_y.get_inner_y_coordinate()}"
 
 		try:
 			positions = ";".join(map(get_pos, self.children))
@@ -271,17 +304,17 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 			if response:
 				raise Exception("online_send_field_positions", self.room_id, positions)
 		except Exception as error:
-			print(error)
+			print(error, 2)
 
 	async def online_send_self_position(self):
 		try:
-			response = room_position_send(int(self.my_name), self.children_d[self.my_name])
+			response = room_position_send(int(self.my_name), self.children_d[self.my_name].get_inner_y_coordinate())
 			if response:
 				raise Exception("online_send_self_position", int(self.my_name), self.children_d[self.my_name])
 			else:
 				self.counter_action('change', **response)
 		except Exception as error:
-			print(error)
+			print(error, 3)
 
 	async def online_track_get_field_status(self):
 		try:
@@ -291,16 +324,16 @@ class CustomBattleMDFloatLayout(MDFloatLayout):
 			else:
 				self.counter_action('change', **response)
 		except Exception as error:
-			print(error)
+			print(error, 4)
 
 	async def online_track_send_field_status(self):
 		try:
-			score = self.counter_action['get']
+			score = self.counter_action('get')
 			response = room_score_update(self.room_id, score['left'], score['right'])
 			if response:
 				raise Exception("online_track_send_field_status", self.room_id, score)
 		except Exception as error:
-			print(error)
+			print(error, 5)
 
 	def set_positions(self):
 		self.counter_action("update")
@@ -524,6 +557,16 @@ class Ball(GameObject):
 	def reset(self):
 		self.vector_y, self.vector_x = 0, 0
 
+	def set_outer_pos(self, x, y):
+		self.set_center_x(x * self.coefficient_x)
+		self.set_center_y(y * self.coefficient_y)
+
+	def get_inner_x_coordinate(self):
+		return str(self.center_x / self.coefficient_x)
+
+	def get_inner_y_coordinate(self):
+		return str(self.center_y / self.coefficient_y)
+
 
 class Platform(GameObject):
 	type = StringProperty("platform")
@@ -552,3 +595,10 @@ class Platform(GameObject):
 			self.y += self.speed * difference / abs(difference)
 
 		self.collision()
+
+	def get_inner_y_coordinate(self):
+		return str(self.center_y / self.coefficient_y)
+
+	def set_outer_pos(self, y):
+		self.set_center_y(y * self.coefficient_y)
+

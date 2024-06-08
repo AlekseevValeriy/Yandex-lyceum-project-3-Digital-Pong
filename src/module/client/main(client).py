@@ -639,7 +639,12 @@ class DigitalPong(MDApp):
 	# V------DIALOG ACTIONS------V #
 
 	def back(self):
-		self.root.current = "offline_room_creation_menu"
+
+		match self.SETTINGS['situation']:
+			case 'offline':
+				self.root.current = "offline_room_creation_menu"
+			case 'online':
+				self.root.current = "online_room_creation_menu"
 		asynckivy.start(self.root.ids.battle_field.exit())
 
 	def end_back(self):
@@ -652,6 +657,7 @@ class DigitalPong(MDApp):
 				case "online":
 					if not (side := user_get_side(self.DATA["id"])):
 						self.DIALOG_MANAGER("choice_side_alert")
+						return
 					elif type(side) is dict:
 						raise ResponseException(side)
 					response = room_enter_field(self.DATA["current_room_id"], self.DATA["id"])
@@ -927,28 +933,30 @@ class DigitalPong(MDApp):
 	async def open_git(self, link: str) -> None:
 		open(link)
 
-	async def get_error_alert(self, exception: Exception):
-		print(type(exception).__name__)
-		match type(exception).__name__:
-			case "ConnectionError":
-				header = 'Проблемы с подключением'
-				support_text = "На данный момент сервер отключен. "
-				"Для устранения проблемы свяжитесь с gamedev`ом, "
-				"либо подождите, пока сервер не запуститься вновь."
-			case "ResponseException":
-				if "status_code" in exception.args[0] and "message" in exception.args[0]:
-					header = f'Проблема - {exception.args[0]["status_code"]}'
-					support_text = f"{exception.args[0]["message"]}"
-				else:
-					header = 'Что - то'
-					support_text = f"{exception} - {exception.args}"
-			case "TheRoomHasBeenDeleted":
-				header = 'Сообщение'
-				support_text = "Комната была удалена хостом комнаты. Вы вышил из комнаты."
-				asynckivy.start(self.exit_from_room())
-			case _:
-				header = f'Ошибка - {type(exception).__name__}'
-				support_text = f"{str(exception)}\n{extract_tb(exception.__traceback__)}"
+	async def get_error_alert(self, exception: Exception, header: str = "header", support_text: str = "support_text"):
+		print(type(exception).__name__, exception)
+		if exception and exception.args and exception.args[0]:
+			print(exception.args[0])
+			match type(exception).__name__:
+				case "ConnectionError":
+					header = 'Проблемы с подключением'
+					support_text = "На данный момент сервер отключен. "
+					"Для устранения проблемы свяжитесь с gamedev`ом, "
+					"либо подождите, пока сервер не запуститься вновь."
+				case "ResponseException":
+					if "status_code" in exception.args[0] and "message" in exception.args[0]:
+						header = f'Проблема - {exception.args[0]["status_code"]}'
+						support_text = f"{exception.args[0]["message"]}"
+					else:
+						header = 'Что - то'
+						support_text = f"{exception} - {exception.args}"
+				case "TheRoomHasBeenDeleted":
+					header = 'Сообщение'
+					support_text = "Комната была удалена хостом комнаты. Вы вышил из комнаты."
+					asynckivy.start(self.exit_from_room())
+				case _:
+					header = f'Ошибка - {type(exception).__name__}'
+					support_text = f"{str(exception)}\n{extract_tb(exception.__traceback__)}"
 
 		self.DIALOG_MANAGER("alert", header=header, support_text=support_text)
 
@@ -1033,15 +1041,15 @@ class DigitalPong(MDApp):
 			asynckivy.start(self.get_error_alert(exception))
 
 	async def update_current_users(self):
-		while self.DATA['current_room_id']:
-			try:
+		try:
+			while self.DATA['current_room_id']:
 				asynckivy.start(self.get_users_in_room())
-			except Exception as exception:
-				print("update_current_users")
-				asynckivy.start(self.get_error_alert(exception))
-				break
+				await asynckivy.sleep(2)  # 1 on release
+		except Exception as exception:
+			print("update_current_users")
+			asynckivy.start(self.get_error_alert(exception))
 
-			await asynckivy.sleep(2)  # 1 on release
+
 
 	async def update_current_room_settings_user(self):
 		while self.DATA['current_room_id']:
@@ -1176,9 +1184,12 @@ class DigitalPong(MDApp):
 # /\------ROOM MANAGER------/\ #
 
 if __name__ == "__main__":
+	import logging
 	try:
 		app = DigitalPong()
 		app.run()
+		logging.basicConfig(level=logging.INFO)
+		logging.basicConfig(level=logging.INFO)
 	finally:
 		try:
 			data = download("data")

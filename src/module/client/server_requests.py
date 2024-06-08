@@ -106,7 +106,7 @@ def room_score_update(room_id: int, left_score: str, right_score: str) -> dict[s
 	return simplification(put(template(f"score_get/{room_id}/{left_score}/{right_score}")).json())
 
 
-def room_position_send(user_id: int, position: int) -> dict[str: str, str: int] | None:
+def room_position_send(user_id: int, position: str) -> dict[str: str, str: int] | None:
 	return simplification(put(template(f"self_position_send/{user_id}/{position}")).json())
 
 

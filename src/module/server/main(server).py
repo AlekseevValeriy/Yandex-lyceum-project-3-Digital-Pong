@@ -170,15 +170,10 @@ def user_movement(user_id: int, side: str) -> Response:
 
 	sides = get_divide(room)
 
-	print(sides)
-
 	sides['left'] = list(filter(lambda a: a != str(user_id) and a, sides['left']))
 	sides['right'] = list(filter(lambda a: a != str(user_id) and a, sides['right']))
-	print(sides)
 
 	sides[side].append(user_id)
-
-	print(sides)
 
 	room.set_divide('left', sides['left'])
 	room.set_divide('right', sides['right'])
@@ -230,6 +225,9 @@ def create_room(user_id: int, bots: str, users_quantity: int, ball_radius: int, 
 	room_settings["platform_height"]["data"][0]
 	room.platform_width = platform_width if 4 < platform_width < room_settings["platform_width"]["data"][1] else \
 	room_settings["platform_width"]["data"][0]
+
+	if room.users_quantity == 1:
+		room.game_run = True
 
 	room.user_ids = user_plus(room.user_ids, str(user_id))
 	db_session_app.add(room)
@@ -305,7 +303,7 @@ def field_enter(room_id: int, user_id: int) -> Response:
 
 	if str(user.id) not in users: raise RoomUserMiss
 	if room.positions:
-		room.positions = ';'.join((*room.user_positions.split(';'), f"{user_id}:0"))
+		room.positions = ';'.join((*room.positions.split(';'), f"{user_id}:0"))
 	else:
 		room.positions = f"{user_id}:0"
 	db_session_app.add(room)
@@ -443,9 +441,9 @@ def get_user_side(user_id: int) -> Response:
 	if not user: raise UserNotExists
 	room = db_session_app.query(Room).filter(Room.id == user.room_id).first()
 	if not room: raise RoomNotExists
-	if user_id in room.get_divide("left"):
+	if str(user_id) in room.get_divide("left"):
 		return jsonify('left')
-	elif user_id in room.get_divide("right"):
+	elif str(user_id) in room.get_divide("right"):
 		return jsonify('right')
 
 	return jsonify(None)
@@ -456,6 +454,7 @@ def get_user_side(user_id: int) -> Response:
 def all_on_place(room_id: int) -> Response:
 	room = db_session_app.query(Room).filter(Room.id == room_id).first()
 	if not room: raise RoomNotExists
+	print(room.user_positions_quantity, room.users_quantity)
 	if room.users_quantity == room.user_positions_quantity:
 		return jsonify(True)
 	return jsonify(False)
@@ -480,15 +479,15 @@ def score_update(room_id: int, left_score: str, right_score: str) -> Response:
 	return jsonify(0)
 
 
-@app.route('/self_position_send/<int:user_id>/<int:position>', methods=["PUT"])
+@app.route('/self_position_send/<int:user_id>/<string:position>', methods=["PUT"])
 @catch_error
-def self_position_send(user_id: int, position: int) -> Response:
+def self_position_send(user_id: int, position: str) -> Response:
 	user = db_session_app.query(User).filter(User.id == user_id).first()
 	if not user: raise UserNotExists
 	room = db_session_app.query(Room).filter(Room.id == user.room_id).first()
 	if not room: raise RoomNotExists
 	positions = dict(map(lambda r: r.split(':'), room.positions.split(';')))
-	positions[str(user_id)] = str(position)
+	positions[str(user_id)] = position
 	room.positions = ';'.join(map(lambda name: f"{name}:{positions[name]}", positions))
 	db_session_app.add(room)
 	db_session_app.commit()
@@ -503,7 +502,7 @@ def get_field_positions(room_id: int) -> Response:
 	return jsonify(dict(map(lambda r: r.split(':'), room.positions.split(';'))))
 
 
-@app.route('/update_field_positions/<int:room_id>/<sting:field_positions>', methods=["PUT"])
+@app.route('/update_field_positions/<int:room_id>/<string:field_positions>', methods=["PUT"])
 @catch_error
 def update_field_positions(room_id: int, field_positions: str) -> Response:
 	room = db_session_app.query(Room).filter(Room.id == room_id).first()
